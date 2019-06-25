@@ -23,18 +23,33 @@ const nodes = [
     key: '04119E835DF3E78BACF0F84235B300546AF8B936F035185E2A8E9E0A67C8924F' }
 ];
 
+interface IToxFile {
+	name: string;
+	buffer: Buffer;
+	kind: "data" | "avatar";
+}
+
+interface IMessageQueueEntry {
+	type: "text" | "file";
+	text?: string;
+	emote?: boolean;
+	buffer?: Buffer;
+}
+
 export class Client extends EventEmitter {
 	private tox: Toxcore.Tox;
 	private hexFriendLut: {[key: string]: number};
 	private friendHexLut: {[key: number]: string};
 	private friendsStatus: {[key: number]: boolean};
-	private friendsMessageQueue: {[key: number]: {text: string; emote: boolean}[]};
+	private friendsMessageQueue: {[key: number]: IMessageQueueEntry[]};
+	private files: {[key: string]: IToxFile};
 	constructor(dataPath: string) {
 		super();
 		this.hexFriendLut = {};
 		this.friendHexLut = {};
 		this.friendsStatus = {};
 		this.friendsMessageQueue = {};
+		this.files = {};
 		this.tox = new toxcore.Tox({
 			data: dataPath,
 			path: "lib/libtoxcore.so",
@@ -93,8 +108,47 @@ export class Client extends EventEmitter {
 			if (e.isConnected()) {
 				await this.populateFriendList();
 			}
-			this.emit(status, await this.tox.getPublicKeyHexAsync());
-		})
+			let key = await this.tox.getPublicKeyHexAsync();
+			key += await this.tox.getNospamAsync();
+			this.emit(status, key);
+		});
+
+		// file transmission stuff
+		this.tox.on("fileRecvControl", (e) => {
+			const fileKey = `${e.friend()};${e.file()}`;
+			log.verbose(`Received file control with key ${fileKey}: ${e.controlName()}`);
+
+			if (e.isCancel()) {
+				delete this.files[fileKey];
+			}
+		});
+
+		this.tox.on("fileChunkRequest", async (e) => {
+			const fileKey = `${e.friend()};${e.file()}`;
+			const f = this.files[fileKey];
+			if (!f) {
+				return;
+			}
+			log.verbose(`Received file chunk request with key ${fileKey}`);
+			const length = e.length();
+			const position = e.position();
+			const sendData = Buffer.alloc(length);
+			f.buffer.copy(sendData, 0, position, position + length);
+			try {
+				await this.tox.sendFileChunkAsync(e.friend(), e.file(), position, sendData);
+			} catch (err) {
+				if (err.code === Toxcore.Consts.TOX_ERR_FILE_SEND_CHUNK_NOT_TRANSFERRING) {
+					log.verbose("Done sending file");
+					delete this.files[fileKey];
+				} else 
+					throw err;
+				}
+			}
+		});
+
+		this.tox.on("fileRecv", async (e) => {
+			
+		});
 
 		await this.tox.start();
 	}
@@ -106,6 +160,11 @@ export class Client extends EventEmitter {
 	public async sendMessage(hex: string, text: string, emote: boolean) {
 		const friend = await this.getHexFriendLut(hex);
 		await this.sendMessageFriend(friend, text, emote);
+	}
+
+	public async sendFile(hex: string, buffer: Buffer, filename: string = "") {
+		const friend = await this.getHexFriendLut(hex);
+		await this.sendFileFriend(friend, buffer, filename);
 	}
 
 	public async getSelfUserId() {
@@ -130,8 +189,33 @@ export class Client extends EventEmitter {
 				this.friendsMessageQueue[friend] = [];
 			}
 			this.friendsMessageQueue[friend].push({
+				type: "text",
 				text,
 				emote,
+			});
+		}
+	}
+
+	private async sendFileFriend(friend: number, buffer: Buffer, filename: string = "") {
+		try {
+			const fileNum = await this.tox.sendFileAsync(friend, Toxcore.Consts.TOX_FILE_KIND_DATA, filename, buffer.byteLength);
+			this.files[`${friend};${fileNum}`] = {
+				name: filename,
+				buffer,
+				type: "data",
+			};
+		} catch (err) {
+			if (err.code !== Toxcore.Consts.TOX_ERR_FILE_SEND_FRIEND_NOT_CONNECTED || this.isFriendConnected(friend)) {
+				throw err;
+			}
+			log.info(`Friend ${friend} offline, appending file to queue`);
+			if (!this.friendsMessageQueue[friend]) {
+				this.friendsMessageQueue[friend] = [];
+			}
+			this.friendsMessageQueue[friend].push({
+				type: "file",
+				text: filename,
+				buffer,
 			});
 		}
 	}
@@ -177,7 +261,11 @@ export class Client extends EventEmitter {
 		const queue = [...this.friendsMessageQueue[friend]];
 		this.friendsMessageQueue[friend] = [];
 		for (const item of queue) {
-			await this.sendMessageFriend(friend, item.text, item.emote);
+			if (item.type === "text") {
+				await this.sendMessageFriend(friend, item.text!, item.emote!);
+			} else if (item.type === "file") {
+				await this.sendFileFriend(friend, item.buffer!, item.text!);
+			}
 		}
 	}
 }

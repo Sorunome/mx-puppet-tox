@@ -40,7 +40,7 @@ if (options.help) {
 }
 
 const features = {
-//	file: true, // no need for the others as we auto-detect types anyways
+	file: true, // no need for the others as we auto-detect types anyways
 } as IPuppetBridgeFeatures;
 
 const puppet = new PuppetBridge(options["registration-file"], options.config, features);
@@ -66,6 +66,7 @@ async function run() {
 	puppet.on("puppetNew", tox.newPuppet.bind(tox));
 	puppet.on("puppetDelete", tox.deletePuppet.bind(tox));
 	puppet.on("message", tox.handleMatrixMessage.bind(tox));
+	puppet.on("file", tox.handleMatrixFile.bind(tox));
 	puppet.setCreateUserHook(tox.getUserParams.bind(tox));
 	puppet.setGetDescHook((puppetId: number, data: any, html: boolean): string => {
 		let s = "Tox";

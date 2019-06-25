@@ -4,6 +4,7 @@ import {
 	IReceiveParams,
 	IRemoteChanSend,
 	IMessageEvent,
+	IFileEvent,
 	Log,
 	Util,
 } from "mx-puppet-bridge";
@@ -114,6 +115,15 @@ export class Tox {
 			return;
 		}
 		await p.client.sendMessage(room.roomId, data.body, data.emote);
+	}
+
+	public async handleMatrixFile(room: IRemoteChanSend, data: IFileEvent, event: any) {
+		const p = this.puppets[room.puppetId];
+		if (!p) {
+			return;
+		}
+		const buffer = await Util.DownloadFile(data.url);
+		await p.client.sendFile(room.roomId, buffer, data.filename);
 	}
 
 	public async newPuppet(puppetId: number, data: any) {
