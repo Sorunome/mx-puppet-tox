@@ -107,9 +107,7 @@ export class Client extends EventEmitter {
 			if (e.isConnected()) {
 				await this.populateFriendList();
 			}
-			let key = await this.tox.getPublicKeyHexAsync();
-			key += await this.tox.getNospamAsync();
-			this.emit(status, key);
+			this.emit(status, await this.getFullPubKey());
 		});
 
 		// file transmission stuff
@@ -303,5 +301,22 @@ export class Client extends EventEmitter {
 				await this.sendFileFriend(friend, item.buffer!, item.text!);
 			}
 		}
+	}
+
+	private async getFullPubKey(): Promise<string> {
+		let key = await this.tox.getPublicKeyAsync();
+		const nospam = Buffer.alloc(4);
+		nospam.writeUInt32BE(await this.tox.getNospamAsync(), 0);
+		key = Buffer.concat([key, nospam]);
+
+		const checksum = Buffer.alloc(2);
+		checksum.writeUInt16BE(0, 0);
+		for (let i = 0; i < key.byteLength; i += 2) {
+			checksum[0] ^= key[i];
+			checksum[1] ^= key[i + 1];
+		}
+
+		key = Buffer.concat([key, checksum]);
+		return key.toString("hex");
 	}
 }
