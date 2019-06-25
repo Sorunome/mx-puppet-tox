@@ -67,6 +67,11 @@ export class Tox {
 			return;
 		}
 		const client = new Client(p.data.savefile);
+		client.on("connected", async (key: string) => {
+			const d = this.puppets[puppetId].data;
+			d.key = key;
+			await this.puppet.setPuppetData(puppetId, d);
+		});
 		client.on("disconnected", async () => {
 			if (p.clientStopped) {
 				return;
@@ -82,6 +87,9 @@ export class Tox {
 		client.on("message", async (data) => {
 			log.verbose("Got new message event");
 			await this.handleToxMessage(puppetId, data);
+		});
+		client.on("friendName", async (data) => {
+			await this.updateUser(puppetId, data.id);
 		});
 		p.client = client;
 		try {
@@ -105,8 +113,6 @@ export class Tox {
 		if (!p) {
 			return;
 		}
-		console.log("======");
-		console.log(data);
 		await p.client.sendMessage(room.roomId, data.body, data.emote);
 	}
 
@@ -128,5 +134,14 @@ export class Tox {
 		log.info(`Got signal to quit Puppet: puppetId=${puppetId}`);
 		await this.stopClient(puppetId);
 		await this.removePuppet(puppetId);
+	}
+
+	public async updateUser(puppetId: number, hex: string) {
+		const user = await this.getUserParams(puppetId, hex);
+		log.verbose(`Update user data`, user);
+		if (!user) {
+			return;
+		}
+		await this.puppet.updateUser(user);
 	}
 }

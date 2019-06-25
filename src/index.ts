@@ -8,6 +8,7 @@ import {
 import * as commandLineArgs from "command-line-args";
 import * as commandLineUsage from "command-line-usage";
 import { Tox } from "./tox";
+import * as escapeHtml from "escape-html";
 
 const log = new Log("ToxPuppet:index");
 
@@ -66,6 +67,24 @@ async function run() {
 	puppet.on("puppetDelete", tox.deletePuppet.bind(tox));
 	puppet.on("message", tox.handleMatrixMessage.bind(tox));
 	puppet.setCreateUserHook(tox.getUserParams.bind(tox));
+	puppet.setGetDescHook((puppetId: number, data: any, html: boolean): string => {
+		let s = "Tox";
+		if (data.savefile) {
+			if (html) {
+				s += `savefile <code>${escapeHtml(data.savefile)}</code>`;
+			} else {
+				s += `savefile "${data.savefile}"`;
+			}
+		}
+		if (data.key) {
+			if (html) {
+				s += `with public key <code>${data.key}</code>`;
+			} else {
+				s += `with public key "${data.key}"`;
+			}
+		}
+		return s;
+	});
 	puppet.setGetDastaFromStrHook((str: string): IRetData => {
 		const retData = {
 			success: false,

@@ -2,6 +2,7 @@ import { Log } from "mx-puppet-bridge";
 import { EventEmitter } from "events";
 import * as Bluebird from "bluebird";
 import * as Toxcore from "js-toxcore-c";
+import { Buffer } from "buffer";
 const toxcore = Bluebird.promisifyAll(Toxcore);
 
 
@@ -26,10 +27,14 @@ export class Client extends EventEmitter {
 	private tox: Toxcore.Tox;
 	private hexFriendLut: {[key: string]: number};
 	private friendHexLut: {[key: number]: string};
+	private friendsStatus: {[key: number]: boolean};
+	private friendsMessageQueue: {[key: number]: {text: string; emote: boolean}[]};
 	constructor(dataPath: string) {
 		super();
 		this.hexFriendLut = {};
 		this.friendHexLut = {};
+		this.friendsStatus = {};
+		this.friendsMessageQueue = {};
 		this.tox = new toxcore.Tox({
 			data: dataPath,
 			path: "lib/libtoxcore.so",
@@ -42,11 +47,36 @@ export class Client extends EventEmitter {
 			await this.tox.bootstrap(node.address, node.port, node.key);
 		}
 
+		this.tox.on("friendName", async (e) => {
+			const key = await this.getFriendPublicKeyHex(e.friend());
+			log.verbose(`Got new name from key ${key}`);
+			this.emit("friendName", {
+				id: key,
+			});
+		});
+
+		this.tox.on("friendRequest", async (e) => {
+			await this.tox.addFriendNoRequestAsync(e.publicKey());
+		});
+
+		this.tox.on("friendConnectionStatus", async (e) => {
+			const friend = e.friend();
+			const isConnected = e.isConnected();
+			log.verbose(`Friend ${friend} connection status changed to ${isConnected}`);
+			this.friendsStatus[friend] = isConnected;
+			if (isConnected) {
+				// no await as we do this in the background
+				this.popMessageQueue(friend);
+			}
+		});
+
 		this.tox.on("friendMessage", async (e) => {
+			const key = await this.getFriendPublicKeyHex(e.friend());
+			log.verbose(`Received new message from key ${key}`);
 			this.emit("message", {
-				id: await this.getFriendPublicKeyHex(e.friend()),
+				id: key,
 				message: e.message(),
-				emote: e._messageType === 1,
+				emote: e._messageType === Toxcore.Consts.TOX_MESSAGE_TYPE_ACTION,
 			});
 		});
 
@@ -63,7 +93,7 @@ export class Client extends EventEmitter {
 			if (e.isConnected()) {
 				await this.populateFriendList();
 			}
-			this.emit(status);
+			this.emit(status, await this.tox.getPublicKeyHexAsync());
 		})
 
 		await this.tox.start();
@@ -74,8 +104,8 @@ export class Client extends EventEmitter {
 	}
 
 	public async sendMessage(hex: string, text: string, emote: boolean) {
-		const channel = await this.getHexFriendLut(hex);
-		await this.tox.sendFriendMessageAsync(channel, text, emote);
+		const friend = await this.getHexFriendLut(hex);
+		await this.sendMessageFriend(friend, text, emote);
 	}
 
 	public async getSelfUserId() {
@@ -88,12 +118,30 @@ export class Client extends EventEmitter {
 		return name.replace(/\0/g, "");
 	}
 
+	private async sendMessageFriend(friend: number, text: string, emote: boolean) {
+		try {
+			await this.tox.sendFriendMessageAsync(friend, text, emote);
+		} catch (err) {
+			if (err.code !== Toxcore.Consts.TOX_ERR_FRIEND_SEND_MESSAGE_FRIEND_NOT_CONNECTED || this.isFriendConnected(friend)) {
+				throw err;
+			}
+			log.info(`Friend ${friend} offline, appending message to queue`);
+			if (!this.friendsMessageQueue[friend]) {
+				this.friendsMessageQueue[friend] = [];
+			}
+			this.friendsMessageQueue[friend].push({
+				text,
+				emote,
+			});
+		}
+	}
+
 	private async getHexFriendLut(hex: string): Promise<number> {
-		if (this.hexFriendLut[hex]) {
+		if (this.hexFriendLut[hex] !== undefined) {
 			return this.hexFriendLut[hex];
 		}
-		this.populateFriendList();
-		return this.populateFriendList[hex];
+		await this.populateFriendList();
+		return this.hexFriendLut[hex];
 	}
 
 	private async populateFriendList() {
@@ -111,5 +159,25 @@ export class Client extends EventEmitter {
 		}
 		this.friendHexLut[f] = await this.tox.getFriendPublicKeyHexAsync(f);
 		return this.friendHexLut[f];
+	}
+
+	private isFriendConnected(friend: number): boolean {
+		if (!this.friendsStatus[friend]) {
+			return false;
+		}
+		return this.friendsStatus[friend];
+	}
+
+	private async popMessageQueue(friend: number) {
+		log.info(`Popping message queue for friend ${friend}...`);
+		if (!this.friendsMessageQueue[friend]) {
+			log.verbose("Queue empty!");
+			return; //  nothing to do
+		}
+		const queue = [...this.friendsMessageQueue[friend]];
+		this.friendsMessageQueue[friend] = [];
+		for (const item of queue) {
+			await this.sendMessageFriend(friend, item.text, item.emote);
+		}
 	}
 }
