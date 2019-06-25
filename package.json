@@ -1,0 +1,25 @@
+{
+  "name": "mx-puppet-tox",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run-script build && node ./build/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Sorunome",
+  "dependencies": {
+    "bluebird": "^3.5.5",
+    "command-line-args": "^5.1.1",
+    "command-line-usage": "^5.0.5",
+    "mx-tox-bridge": "^0.0.0",
+    "events": "^3.0.0",
+    "js-toxcore-c": "^0.2.0",
+    "tslint": "^5.17.0",
+    "typescript": "^3.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^12.0.8"
+  }
+}
