@@ -8,7 +8,7 @@ import {
 	Log,
 	Util,
 } from "mx-puppet-bridge";
-import { Client } from "./client";
+import { Client, IToxFile } from "./client";
 
 const log = new Log("ToxPuppet:tox");
 
@@ -89,8 +89,18 @@ export class Tox {
 			log.verbose("Got new message event");
 			await this.handleToxMessage(puppetId, data);
 		});
-		client.on("friendName", async (data) => {
-			await this.updateUser(puppetId, data.id);
+		client.on("file", async (key, data) => {
+			log.verbose("Got new file event");
+			await this.handleToxFile(puppetId, key, data);
+		});
+		client.on("friendAvatar", async (key, data) => {
+			log.verbose(`Updating avatar for ${key}...`);
+			let user = await this.getUserParams(puppetId, key);
+			user.avatarBuffer = data.buffer;
+			await this.puppet.updateUser(user);
+		});
+		client.on("friendName", async (key) => {
+			await this.updateUser(puppetId, key);
 		});
 		p.client = client;
 		try {
@@ -107,6 +117,11 @@ export class Tox {
 			body: data.message,
 			emote: data.emote,
 		});
+	}
+
+	public async handleToxFile(puppetId: number, key: string, data: IToxFile) {
+		const params = this.getSendParams(puppetId, key);
+		await this.puppet.sendFileDetect(params, data.buffer, data.name);
 	}
 
 	public async handleMatrixMessage(room: IRemoteChanSend, data: IMessageEvent, event: any) {

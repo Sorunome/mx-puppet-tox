@@ -23,9 +23,10 @@ const nodes = [
     key: '04119E835DF3E78BACF0F84235B300546AF8B936F035185E2A8E9E0A67C8924F' }
 ];
 
-interface IToxFile {
+export interface IToxFile {
 	name: string;
 	buffer: Buffer;
+	size: number;
 	kind: "data" | "avatar";
 }
 
@@ -65,9 +66,7 @@ export class Client extends EventEmitter {
 		this.tox.on("friendName", async (e) => {
 			const key = await this.getFriendPublicKeyHex(e.friend());
 			log.verbose(`Got new name from key ${key}`);
-			this.emit("friendName", {
-				id: key,
-			});
+			this.emit("friendName", key);
 		});
 
 		this.tox.on("friendRequest", async (e) => {
@@ -132,22 +131,58 @@ export class Client extends EventEmitter {
 			log.verbose(`Received file chunk request with key ${fileKey}`);
 			const length = e.length();
 			const position = e.position();
-			const sendData = Buffer.alloc(length);
+			let sendData = Buffer.alloc(length);
 			f.buffer.copy(sendData, 0, position, position + length);
+/*
+			if (position + length > f.size) {
+				sendData = sendData.slice(0, f.size - position);
+			}
+*/
 			try {
 				await this.tox.sendFileChunkAsync(e.friend(), e.file(), position, sendData);
 			} catch (err) {
 				if (err.code === Toxcore.Consts.TOX_ERR_FILE_SEND_CHUNK_NOT_TRANSFERRING) {
 					log.verbose("Done sending file");
 					delete this.files[fileKey];
-				} else 
+				} else {
 					throw err;
 				}
 			}
 		});
 
 		this.tox.on("fileRecv", async (e) => {
-			
+			const fileKey = `${e.friend()};${e.file()}`;
+			this.files[fileKey] = {
+				kind: e.kind() === Toxcore.Consts.TOX_FILE_KIND_AVATAR ? "avatar" : "data",
+				size: e.size(),
+				buffer: Buffer.alloc(e.size()),
+				name: e.filename() || "tox_transfer",
+			};
+			await this.tox.controlFileAsync(e.friend(), e.file(), "resume");
+		});
+
+		this.tox.on("fileRecvChunk", async (e) => {
+			const fileKey = `${e.friend()};${e.file()}`;
+			log.verbose(`Received fileRecvChunk with key ${fileKey}`);
+			const f = this.files[fileKey];
+//			if (e.isNull()) {
+//				log.warn("Received nullpointer, ignoring...");
+//				return;
+//			}
+
+			if (e.isFinal()) {
+				const key = await this.getFriendPublicKeyHex(e.friend());
+				log.info(`Received file ${f.name} of kind ${f.kind} from ${key}`);
+				// we are done! yay!
+				if (f.kind === "avatar") {
+					this.emit("friendAvatar", key, f);
+				} else {
+					this.emit("file", key, f);
+				}
+				delete this.files[fileKey];
+				return;
+			}
+			e.data().copy(f.buffer, e.position(), 0, e.length());
 		});
 
 		await this.tox.start();
@@ -202,7 +237,8 @@ export class Client extends EventEmitter {
 			this.files[`${friend};${fileNum}`] = {
 				name: filename,
 				buffer,
-				type: "data",
+				kind: "data",
+				size: buffer.byteLength,
 			};
 		} catch (err) {
 			if (err.code !== Toxcore.Consts.TOX_ERR_FILE_SEND_FRIEND_NOT_CONNECTED || this.isFriendConnected(friend)) {
