@@ -1,4 +1,4 @@
-import { Log } from "mx-puppet-bridge";
+import { Log, Util } from "mx-puppet-bridge";
 import { EventEmitter } from "events";
 import * as Bluebird from "bluebird";
 import * as Toxcore from "js-toxcore-c";
@@ -10,17 +10,17 @@ const log = new Log("ToxPuppet:Client");
 
 const nodes = [
   { maintainer: 'saneki',
-    address: '96.31.85.154',
-    port: 33445,
-    key: '674153CF49616CD1C4ADF44B004686FC1F6C9DCDD048EF89B117B3F02AA0B778' },
+	address: '96.31.85.154',
+	port: 33445,
+	key: '674153CF49616CD1C4ADF44B004686FC1F6C9DCDD048EF89B117B3F02AA0B778' },
   { maintainer: 'Impyy',
-    address: '178.62.250.138',
-    port: 33445,
-    key: '788236D34978D1D5BD822F0A5BEBD2C53C64CC31CD3149350EE27D4D9A2F9B6B' },
+	address: '178.62.250.138',
+	port: 33445,
+	key: '788236D34978D1D5BD822F0A5BEBD2C53C64CC31CD3149350EE27D4D9A2F9B6B' },
   { maintainer: 'sonOfRa',
-    address: '144.76.60.215',
-    port: 33445,
-    key: '04119E835DF3E78BACF0F84235B300546AF8B936F035185E2A8E9E0A67C8924F' }
+	address: '144.76.60.215',
+	port: 33445,
+	key: '04119E835DF3E78BACF0F84235B300546AF8B936F035185E2A8E9E0A67C8924F' }
 ];
 
 export interface IToxFile {
@@ -76,12 +76,14 @@ export class Client extends EventEmitter {
 		this.tox.on("friendConnectionStatus", async (e) => {
 			const friend = e.friend();
 			const isConnected = e.isConnected();
-			log.verbose(`Friend ${friend} connection status changed to ${isConnected}`);
+			const key = await this.getFriendPublicKeyHex(friend);
+			log.verbose(`User ${key} connection status changed to ${isConnected}`);
 			this.friendsStatus[friend] = isConnected;
 			if (isConnected) {
 				// no await as we do this in the background
 				this.popMessageQueue(friend);
 			}
+			this.emit("friendStatus", key, isConnected ? "online" : "offline");
 		});
 
 		this.tox.on("friendMessage", async (e) => {
@@ -95,10 +97,23 @@ export class Client extends EventEmitter {
 		});
 
 		this.tox.on("friendStatus", async (e) => {
-			this.emit("status", {
-				id: await this.getFriendPublicKeyHex(e.friend()),
-				status: e.status,
-			});
+			const key = await this.getFriendPublicKeyHex(e.friend());
+			let status = {
+				0: "online",
+				1: "away",
+				2: "busy",
+			}[e.status()];
+			if (!status) {
+				status = "online";
+			}
+			log.verbose(`User ${key} status changed to ${status}`)
+			this.emit("friendStatus", key, status);
+		});
+
+		this.tox.on("friendStatusMessage", async (e) => {
+			const key = await this.getFriendPublicKeyHex(e.friend());
+			log.verbose(`User ${key} status message changed to ${e.statusMessage()}`);
+			this.emit("friendStatusMessage", key, e.statusMessage());
 		});
 
 		this.tox.on("selfConnectionStatus", async (e) => {
@@ -108,6 +123,15 @@ export class Client extends EventEmitter {
 				await this.populateFriendList();
 			}
 			this.emit(status, await this.getFullPubKey());
+			if (!e.isConnected()) {
+				log.info(`Lost connection, reconnecting in half a minute...`);
+				await Util.sleep(30 * 1000);
+				try {
+					await this.tox.start();
+				} catch (err) {
+					log.error("Failed to start client", err);
+				}
+			}
 		});
 
 		// file transmission stuff
@@ -292,9 +316,8 @@ export class Client extends EventEmitter {
 			log.verbose("Queue empty!");
 			return; //  nothing to do
 		}
-		const queue = [...this.friendsMessageQueue[friend]];
-		this.friendsMessageQueue[friend] = [];
-		for (const item of queue) {
+		let item: IMessageQueueEntry | undefined;
+		while (item = this.friendsMessageQueue[friend].shift()) {
 			if (item.type === "text") {
 				await this.sendMessageFriend(friend, item.text!, item.emote!);
 			} else if (item.type === "file") {

@@ -16,7 +16,6 @@ interface IToxPuppets {
 	[puppetId: number]: {
 		client: Client;
 		data: any;
-		clientStopped: boolean;
 	}
 }
 
@@ -58,7 +57,6 @@ export class Tox {
 		if (!p) {
 			return;
 		}
-		p.clientStopped = true;
 		await p.client.disconnect();
 	}
 
@@ -72,18 +70,6 @@ export class Tox {
 			const d = this.puppets[puppetId].data;
 			d.key = key;
 			await this.puppet.setPuppetData(puppetId, d);
-		});
-		client.on("disconnected", async () => {
-			if (p.clientStopped) {
-				return;
-			}
-			log.info(`Lost connection for puppet ${puppetId}, reconnecting in a minute...`);
-			await Util.sleep(60 * 1000);
-			try {
-				await this.startClient(puppetId);
-			} catch (err) {
-				log.warn("Failed to restart client", err);
-			}
 		});
 		client.on("message", async (data) => {
 			log.verbose("Got new message event");
@@ -101,6 +87,20 @@ export class Tox {
 		});
 		client.on("friendName", async (key) => {
 			await this.updateUser(puppetId, key);
+		});
+		client.on("friendStatus", async (key, status) => {
+			const matrixPresence = {
+				online: "online",
+				offline: "offline",
+				away: "unavailable",
+				busy: "unavailable",
+			}[status];
+			const user = this.getSendParams(puppetId, key).user;
+			await this.puppet.setUserPresence(user, matrixPresence, puppetId);
+		});
+		client.on("friendStatusMessage", async (key, msg) => {
+			const user = this.getSendParams(puppetId, key).user;
+			await this.puppet.setUserStatus(user, msg, puppetId);
 		});
 		p.client = client;
 		try {
@@ -150,7 +150,6 @@ export class Tox {
 		this.puppets[puppetId] = {
 			client,
 			data,
-			clientStopped: false,
 		} as any;
 		await this.startClient(puppetId);
 	}
