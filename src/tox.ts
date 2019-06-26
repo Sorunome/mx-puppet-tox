@@ -102,6 +102,10 @@ export class Tox {
 			const user = this.getSendParams(puppetId, key).user;
 			await this.puppet.setUserStatus(user, msg, puppetId);
 		});
+		client.on("friendTyping", async (key, typing) => {
+			const params = this.getSendParams(puppetId, key);
+			await this.puppet.setUserTyping(params, typing);
+		});
 		p.client = client;
 		try {
 			await client.connect();

@@ -116,6 +116,12 @@ export class Client extends EventEmitter {
 			this.emit("friendStatusMessage", key, e.statusMessage());
 		});
 
+		this.tox.on("friendTyping", async (e) => {
+			const key = await this.getFriendPublicKeyHex(e.friend());
+			log.verbose(`User ${key} typing event to ${e.isTyping()}`);
+			this.emit("friendTyping", key, e.isTyping());
+		});
+
 		this.tox.on("selfConnectionStatus", async (e) => {
 			const status = e.isConnected() ? "connected" : "disconnected";
 			log.verbose(`New connection status: ${status}!`);
