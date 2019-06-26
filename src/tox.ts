@@ -31,6 +31,7 @@ export class Tox {
 		}
 		return {
 			userId: hex,
+			puppetId,
 			name: await this.puppets[puppetId].client.getNameById(hex),
 		} as IRemoteUserReceive;
 	}
@@ -40,9 +41,11 @@ export class Tox {
 			chan: {
 				roomId: hex,
 				puppetId,
+				isDirect: true,
 			},
 			user: {
 				userId: hex,
+				puppetId,
 			},
 		} as IReceiveParams;
 	}
@@ -96,11 +99,11 @@ export class Tox {
 				busy: "unavailable",
 			}[status];
 			const user = this.getSendParams(puppetId, key).user;
-			await this.puppet.setUserPresence(user, matrixPresence, puppetId);
+			await this.puppet.setUserPresence(user, matrixPresence);
 		});
 		client.on("friendStatusMessage", async (key, msg) => {
 			const user = this.getSendParams(puppetId, key).user;
-			await this.puppet.setUserStatus(user, msg, puppetId);
+			await this.puppet.setUserStatus(user, msg);
 		});
 		client.on("friendTyping", async (key, typing) => {
 			const params = this.getSendParams(puppetId, key);

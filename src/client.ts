@@ -59,9 +59,7 @@ export class Client extends EventEmitter {
 	}
 
 	public async connect() {
-		for (const node of nodes) {
-			await this.tox.bootstrap(node.address, node.port, node.key);
-		}
+		await this.bootstrap();
 
 		this.tox.on("friendName", async (e) => {
 			const key = await this.getFriendPublicKeyHex(e.friend());
@@ -133,6 +131,7 @@ export class Client extends EventEmitter {
 				log.info(`Lost connection, reconnecting in half a minute...`);
 				await Util.sleep(30 * 1000);
 				try {
+					await this.bootstrap();
 					await this.tox.start();
 				} catch (err) {
 					log.error("Failed to start client", err);
@@ -347,5 +346,11 @@ export class Client extends EventEmitter {
 
 		key = Buffer.concat([key, checksum]);
 		return key.toString("hex");
+	}
+
+	private async bootstrap() {
+		for (const node of nodes) {
+			await this.tox.bootstrap(node.address, node.port, node.key);
+		}
 	}
 }
