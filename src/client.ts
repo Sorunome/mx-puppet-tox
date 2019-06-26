@@ -44,6 +44,8 @@ export class Client extends EventEmitter {
 	private friendsStatus: {[key: number]: boolean};
 	private friendsMessageQueue: {[key: number]: IMessageQueueEntry[]};
 	private files: {[key: string]: IToxFile};
+	private avatarUrl: string = "";
+	private avatarBuffer: Buffer;
 	constructor(dataPath: string) {
 		super();
 		this.hexFriendLut = {};
@@ -80,6 +82,8 @@ export class Client extends EventEmitter {
 			if (isConnected) {
 				// no await as we do this in the background
 				this.popMessageQueue(friend);
+				// no need to await here, either
+				this.sendAvatarToFriend(friend);
 			}
 			this.emit("friendStatus", key, isConnected ? "online" : "offline");
 		});
@@ -237,6 +241,47 @@ export class Client extends EventEmitter {
 		const id = await this.getHexFriendLut(hex);
 		const name = await this.tox.getFriendNameAsync(id);
 		return name.replace(/\0/g, "");
+	}
+
+	public async setName(name: string) {
+		log.verbose(`Setting name to ${name}`);
+		await this.tox.setNameAsync(name);
+	}
+
+	public async setAvatar(url: string) {
+		if (url === this.avatarUrl) {
+			return;
+		}
+		log.verbose(`Setting avatar to ${url}`);
+		this.avatarUrl = url;
+		this.avatarBuffer = await Util.DownloadFile(url);
+		// we do this async in the background
+		this.sendAvatarUpdate();
+	}
+
+	private async sendAvatarUpdate() {
+		for (const f of Object.keys(this.friendsStatus)) {
+			const friend = Number(f);
+			if (!isNaN(friend) && this.friendsStatus[friend]) {
+				// we do this async in the background
+				this.sendAvatarToFriend(friend);
+			}
+		}
+	}
+
+	private async sendAvatarToFriend(friend: number) {
+		if (!this.avatarBuffer) {
+			return;
+		}
+		const filename = "avatar";
+		const buffer = this.avatarBuffer;
+		const fileNum = await this.tox.sendFileAsync(friend, Toxcore.Consts.TOX_FILE_KIND_AVATAR, filename, buffer.byteLength);
+		this.files[`${friend};${fileNum}`] = {
+			name: filename,
+			buffer,
+			kind: "avatar",
+			size: buffer.byteLength,
+		};
 	}
 
 	private async sendMessageFriend(friend: number, text: string, emote: boolean) {

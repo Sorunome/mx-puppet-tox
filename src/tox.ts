@@ -69,6 +69,15 @@ export class Tox {
 			return;
 		}
 		const client = new Client(p.data.savefile);
+		const userInfo = await this.puppet.getPuppetMxidInfo(puppetId);
+		if (userInfo) {
+			if (userInfo.name) {
+				await client.setName(userInfo.name);
+			}
+			if (userInfo.avatarUrl) {
+				await client.setAvatar(userInfo.avatarUrl);
+			}
+		}
 		client.on("connected", async (key: string) => {
 			const d = this.puppets[puppetId].data;
 			d.key = key;
@@ -146,6 +155,22 @@ export class Tox {
 		}
 		const buffer = await Util.DownloadFile(data.url);
 		await p.client.sendFile(room.roomId, buffer, data.filename);
+	}
+
+	public async handlePuppetName(puppetId: number, name: string) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return;
+		}
+		await p.client.setName(name);
+	}
+
+	public async handlePuppetAvatar(puppetId: number, url: string, mxc: string) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return;
+		}
+		await p.client.setAvatar(url);
 	}
 
 	public async newPuppet(puppetId: number, data: any) {

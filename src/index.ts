@@ -68,6 +68,8 @@ async function run() {
 	puppet.on("puppetDelete", tox.deletePuppet.bind(tox));
 	puppet.on("message", tox.handleMatrixMessage.bind(tox));
 	puppet.on("file", tox.handleMatrixFile.bind(tox));
+	puppet.on("puppetName", tox.handlePuppetName.bind(tox));
+	puppet.on("puppetAvatar", tox.handlePuppetAvatar.bind(tox));
 	puppet.setCreateUserHook(tox.getUserParams.bind(tox));
 	puppet.setGetDescHook((puppetId: number, data: any, html: boolean): string => {
 		let s = "Tox";
