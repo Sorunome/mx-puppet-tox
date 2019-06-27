@@ -1,8 +1,8 @@
 import {
 	PuppetBridge,
-	IRemoteUserReceive,
+	IRemoteUser,
 	IReceiveParams,
-	IRemoteChanSend,
+	IRemoteChan,
 	IMessageEvent,
 	IFileEvent,
 	Log,
@@ -25,7 +25,7 @@ export class Tox {
 		private puppet: PuppetBridge,
 	) { }
 
-	public async getUserParams(puppetId: number, hex: string): Promise<IRemoteUserReceive | null> {
+	public async getUserParams(puppetId: number, hex: string): Promise<IRemoteUser | null> {
 		if (!this.puppets[puppetId]) {
 			return null;
 		}
@@ -33,7 +33,7 @@ export class Tox {
 			userId: hex,
 			puppetId,
 			name: await this.puppets[puppetId].client.getNameById(hex),
-		} as IRemoteUserReceive;
+		} as IRemoteUser;
 	}
 
 	public getSendParams(puppetId: number, hex: string): IReceiveParams {
@@ -140,7 +140,7 @@ export class Tox {
 		await this.puppet.sendFileDetect(params, data.buffer, data.name);
 	}
 
-	public async handleMatrixMessage(room: IRemoteChanSend, data: IMessageEvent, event: any) {
+	public async handleMatrixMessage(room: IRemoteChan, data: IMessageEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -148,7 +148,7 @@ export class Tox {
 		await p.client.sendMessage(room.roomId, data.body, data.emote);
 	}
 
-	public async handleMatrixFile(room: IRemoteChanSend, data: IFileEvent, event: any) {
+	public async handleMatrixFile(room: IRemoteChan, data: IFileEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
