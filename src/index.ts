@@ -19,13 +19,14 @@ const commandOptions = [
 	{ name: "help", alias: "h", type: Boolean },
 ];
 const options = Object.assign({
-	register: false,
+	"register": false,
 	"registration-file": "tox-registration.yaml",
-	config: "config.yaml",
-	help: false,
+	"config": "config.yaml",
+	"help": false,
 }, commandLineArgs(commandOptions));
 
 if (options.help) {
+	// tslint:disable-next-line:no-console
 	console.log(commandLineUsage([
 		{
 			header: "Matrix Tox Puppet Bridge",
@@ -34,7 +35,7 @@ if (options.help) {
 		{
 			header: "Options",
 			optionList: commandOptions,
-		}
+		},
 	]));
 	process.exit(0);
 }
@@ -56,6 +57,7 @@ if (options.register) {
 			url: `http://${puppet.Config.bridge.bindAddress}:${puppet.Config.bridge.port}`,
 		} as IPuppetBridgeRegOpts);
 	} catch (err) {
+		// tslint:disable-next-line:no-console
 		console.log("Couldn't generate registration file:", err);
 	}
 	process.exit(0);
@@ -105,8 +107,9 @@ async function run() {
 	});
 	puppet.setBotHeaderMsgHook((): string => {
 		return "Tox Puppet Bridge";
-	})
+	});
 	await puppet.start();
 }
 
+// tslint:disable-next-line:no-floating-promises
 run();

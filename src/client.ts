@@ -5,22 +5,21 @@ import * as Toxcore from "js-toxcore-c";
 import { Buffer } from "buffer";
 const toxcore = Bluebird.promisifyAll(Toxcore);
 
-
 const log = new Log("ToxPuppet:Client");
 
 const nodes = [
-  { maintainer: 'saneki',
-	address: '96.31.85.154',
-	port: 33445,
-	key: '674153CF49616CD1C4ADF44B004686FC1F6C9DCDD048EF89B117B3F02AA0B778' },
-  { maintainer: 'Impyy',
-	address: '178.62.250.138',
-	port: 33445,
-	key: '788236D34978D1D5BD822F0A5BEBD2C53C64CC31CD3149350EE27D4D9A2F9B6B' },
-  { maintainer: 'sonOfRa',
-	address: '144.76.60.215',
-	port: 33445,
-	key: '04119E835DF3E78BACF0F84235B300546AF8B936F035185E2A8E9E0A67C8924F' }
+	{ maintainer: "saneki",
+		address: "96.31.85.154",
+		port: 33445,
+		key: "674153CF49616CD1C4ADF44B004686FC1F6C9DCDD048EF89B117B3F02AA0B778" },
+	{ maintainer: "Impyy",
+		address: "178.62.250.138",
+		port: 33445,
+		key: "788236D34978D1D5BD822F0A5BEBD2C53C64CC31CD3149350EE27D4D9A2F9B6B" },
+	{ maintainer: "sonOfRa",
+		address: "144.76.60.215",
+		port: 33445,
+		key: "04119E835DF3E78BACF0F84235B300546AF8B936F035185E2A8E9E0A67C8924F" },
 ];
 
 export interface IToxFile {
@@ -81,8 +80,10 @@ export class Client extends EventEmitter {
 			this.friendsStatus[friend] = isConnected;
 			if (isConnected) {
 				// no await as we do this in the background
+				// tslint:disable-next-line:no-floating-promises
 				this.popMessageQueue(friend);
 				// no need to await here, either
+				// tslint:disable-next-line:no-floating-promises
 				this.sendAvatarToFriend(friend);
 			}
 			this.emit("friendStatus", key, isConnected ? "online" : "offline");
@@ -108,7 +109,7 @@ export class Client extends EventEmitter {
 			if (!status) {
 				status = "online";
 			}
-			log.verbose(`User ${key} status changed to ${status}`)
+			log.verbose(`User ${key} status changed to ${status}`);
 			this.emit("friendStatus", key, status);
 		});
 
@@ -133,7 +134,8 @@ export class Client extends EventEmitter {
 			this.emit(status, await this.getFullPubKey());
 			if (!e.isConnected()) {
 				log.info(`Lost connection, reconnecting in half a minute...`);
-				await Util.sleep(30 * 1000);
+				const HALFMIN = 30000;
+				await Util.sleep(HALFMIN);
 				try {
 					await this.bootstrap();
 					await this.tox.start();
@@ -162,7 +164,7 @@ export class Client extends EventEmitter {
 			log.verbose(`Received file chunk request with key ${fileKey}`);
 			const length = e.length();
 			const position = e.position();
-			let sendData = Buffer.alloc(length);
+			const sendData = Buffer.alloc(length);
 			f.buffer.copy(sendData, 0, position, position + length);
 /*
 			if (position + length > f.size) {
@@ -196,10 +198,6 @@ export class Client extends EventEmitter {
 			const fileKey = `${e.friend()};${e.file()}`;
 			log.verbose(`Received fileRecvChunk with key ${fileKey}`);
 			const f = this.files[fileKey];
-//			if (e.isNull()) {
-//				log.warn("Received nullpointer, ignoring...");
-//				return;
-//			}
 
 			if (e.isFinal()) {
 				const key = await this.getFriendPublicKeyHex(e.friend());
@@ -256,6 +254,7 @@ export class Client extends EventEmitter {
 		this.avatarUrl = url;
 		this.avatarBuffer = await Util.DownloadFile(url);
 		// we do this async in the background
+		// tslint:disable-next-line:no-floating-promises
 		this.sendAvatarUpdate();
 	}
 
@@ -264,6 +263,7 @@ export class Client extends EventEmitter {
 			const friend = Number(f);
 			if (!isNaN(friend) && this.friendsStatus[friend]) {
 				// we do this async in the background
+				// tslint:disable-next-line:no-floating-promises
 				this.sendAvatarToFriend(friend);
 			}
 		}
@@ -275,7 +275,8 @@ export class Client extends EventEmitter {
 		}
 		const filename = "avatar";
 		const buffer = this.avatarBuffer;
-		const fileNum = await this.tox.sendFileAsync(friend, Toxcore.Consts.TOX_FILE_KIND_AVATAR, filename, buffer.byteLength);
+		const fileNum = await this.tox.sendFileAsync(friend, Toxcore.Consts.TOX_FILE_KIND_AVATAR,
+			filename, buffer.byteLength);
 		this.files[`${friend};${fileNum}`] = {
 			name: filename,
 			buffer,
@@ -367,16 +368,19 @@ export class Client extends EventEmitter {
 			return; //  nothing to do
 		}
 		let item: IMessageQueueEntry | undefined;
-		while (item = this.friendsMessageQueue[friend].shift()) {
+		item = this.friendsMessageQueue[friend].shift();
+		while (item) {
 			if (item.type === "text") {
 				await this.sendMessageFriend(friend, item.text!, item.emote!);
 			} else if (item.type === "file") {
 				await this.sendFileFriend(friend, item.buffer!, item.text!);
 			}
+			item = this.friendsMessageQueue[friend].shift();
 		}
 	}
 
 	private async getFullPubKey(): Promise<string> {
+		// tslint:disable:no-bitwise no-magic-numbers
 		let key = await this.tox.getPublicKeyAsync();
 		const nospam = Buffer.alloc(4);
 		nospam.writeUInt32BE(await this.tox.getNospamAsync(), 0);
@@ -391,6 +395,7 @@ export class Client extends EventEmitter {
 
 		key = Buffer.concat([key, checksum]);
 		return key.toString("hex");
+		// tslint:enable:no-bitwise no-magic-numbers
 	}
 
 	private async bootstrap() {

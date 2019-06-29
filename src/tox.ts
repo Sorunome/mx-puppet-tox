@@ -12,16 +12,18 @@ import { Client, IToxFile } from "./client";
 
 const log = new Log("ToxPuppet:tox");
 
+interface IToxPuppet {
+	client: Client;
+	data: any;
+}
+
 interface IToxPuppets {
-	[puppetId: number]: {
-		client: Client;
-		data: any;
-	}
+	[puppetId: number]: IToxPuppet;
 }
 
 export class Tox {
 	private puppets: IToxPuppets = {};
-	constructor (
+	constructor(
 		private puppet: PuppetBridge,
 	) { }
 
@@ -93,7 +95,7 @@ export class Tox {
 		});
 		client.on("friendAvatar", async (key, data) => {
 			log.verbose(`Updating avatar for ${key}...`);
-			let user = await this.getUserParams(puppetId, key);
+			const user = await this.getUserParams(puppetId, key);
 			user.avatarBuffer = data.buffer;
 			await this.puppet.updateUser(user);
 		});
@@ -182,7 +184,7 @@ export class Tox {
 		this.puppets[puppetId] = {
 			client,
 			data,
-		} as any;
+		} as IToxPuppet;
 		await this.startClient(puppetId);
 	}
 
