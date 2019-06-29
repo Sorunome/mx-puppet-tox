@@ -22,6 +22,7 @@ export interface IToxFile {
 	name: string;
 	buffer: Buffer;
 	size: number;
+	sending: boolean;
 	kind: "data" | "avatar";
 }
 
@@ -153,6 +154,17 @@ export class Client extends EventEmitter {
 			const fileKey = `${e.friend()};${e.file()}`;
 			log.verbose(`Received file control with key ${fileKey}: ${e.controlName()}`);
 
+			if (!this.files[fileKey]) {
+				return;
+			}
+
+			if (e.isPause()) {
+				this.files[fileKey].sending = false;
+			}
+			if (e.isResume()) {
+				this.files[fileKey].sending = true;
+			}
+
 			if (e.isCancel()) {
 				delete this.files[fileKey];
 			}
@@ -167,6 +179,10 @@ export class Client extends EventEmitter {
 			const length = e.length();
 			const position = e.position();
 			log.verbose(`Received file chunk request with key ${fileKey} (length=${length} position=${position})`);
+			if (!f.sending) {
+				// not sending, ntohing to do
+				return;
+			}
 			if (length === 0) {
 				log.verbose("Done sending file");
 				delete this.files[fileKey];
@@ -198,6 +214,7 @@ export class Client extends EventEmitter {
 				size: e.size(),
 				buffer: Buffer.alloc(e.size()),
 				name: e.filename() || "tox_transfer",
+				sending: true,
 			};
 			await this.tox.controlFileAsync(e.friend(), e.file(), "resume");
 		});
@@ -290,6 +307,7 @@ export class Client extends EventEmitter {
 			buffer,
 			kind: "avatar",
 			size: buffer.byteLength,
+			sending: false,
 		};
 	}
 
@@ -324,6 +342,7 @@ export class Client extends EventEmitter {
 				buffer,
 				kind: "data",
 				size: buffer.byteLength,
+				sending: false,
 			};
 		} catch (err) {
 			if (err.code !== Toxcore.Consts.TOX_ERR_FILE_SEND_FRIEND_NOT_CONNECTED || this.isFriendConnected(friend)) {
