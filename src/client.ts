@@ -133,9 +133,7 @@ export class Client extends EventEmitter {
 			}
 			this.emit(status, await this.getFullPubKey());
 			if (!e.isConnected()) {
-				log.info(`Lost connection, reconnecting in half a minute...`);
-				const HALFMIN = 30000;
-				await Util.sleep(HALFMIN);
+				log.info(`Lost connection, reconnecting...`);
 				try {
 					await this.bootstrap();
 					await this.tox.start();

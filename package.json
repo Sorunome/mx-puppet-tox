@@ -17,7 +17,7 @@
     "escape-html": "^1.0.3",
     "events": "^3.0.0",
     "js-toxcore-c": "^0.2.0",
-    "mx-puppet-bridge": "^0.0.0",
+    "mx-puppet-bridge": "^0.0.3",
     "tslint": "^5.17.0",
     "typescript": "^3.5.2"
   },
