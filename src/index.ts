@@ -10,7 +10,7 @@ import * as commandLineArgs from "command-line-args";
 import * as commandLineUsage from "command-line-usage";
 import { Tox } from "./tox";
 import * as escapeHtml from "escape-html";
-import { IBootstrapNode } from "./client";
+import { IBootstrapNode, CreateSave } from "./client";
 import * as fs from "fs";
 import { ToxConfigWrap } from "./config";
 import * as yaml from "js-yaml";
@@ -136,11 +136,18 @@ async function run() {
 	puppet.setCreateUserHook(tox.getUserParams.bind(tox));
 	puppet.setGetDescHook((puppetId: number, data: any, html: boolean): string => {
 		let s = "Tox";
-		if (data.savefile) {
+		if (data.name) {
 			if (html) {
-				s += `savefile <code>${escapeHtml(data.savefile)}</code>`;
+				s += ` ${escapeHtml(data.name)}`;
 			} else {
-				s += `savefile "${data.savefile}"`;
+				s += ` ${data.name}`;
+			}
+		}
+		if (data.showpath) {
+			if (html) {
+				s += ` savefile <code>${escapeHtml(data.showpath)}</code>`;
+			} else {
+				s += ` savefile "${data.showpath}"`;
 			}
 		}
 		if (data.key) {
@@ -152,17 +159,49 @@ async function run() {
 		}
 		return s;
 	});
-	puppet.setGetDastaFromStrHook((str: string): IRetData => {
+	puppet.setGetDastaFromStrHook(async (str: string): Promise<IRetData> => {
 		const retData = {
 			success: false,
 		} as IRetData;
 		if (!str) {
-			retData.error = "Please specify a tox savefile to link!";
+			retData.error = "Please specify a name!";
 			return retData;
+		}
+		str = str.trim();
+		let path = "";
+		let fileExists = false;
+		if (Config().tox.allowFullSavePath) {
+			const parts = str.split(" ");
+			if (parts[0] === "file") {
+				str = "file";
+				parts.shift();
+				path = parts.join(" ");
+				fileExists = true;
+			}
+		}
+		if (!str.match(/^[a-zA-Z0-9]+$/)) {
+			retData.error = "Name may only contain numbers and letters!";
+			return retData;
+		}
+		let showpath = path;
+		if (!path) {
+			showpath = `${str}.${new Date().getTime()}.tox`;
+			path = `${Config().tox.savesFolder}/${showpath}`;
+		}
+		if (!fileExists) {
+			try {
+				await CreateSave(path);
+			} catch (err) {
+				retData.error = "Failed to create save file, please contact an administrator!";
+				log.error("Failed to create savefile", err);
+				return retData;
+			}
 		}
 		retData.success = true;
 		retData.data = {
-			savefile: str.trim(),
+			name: str,
+			savefile: path,
+			showpath,
 		};
 		return retData;
 	});

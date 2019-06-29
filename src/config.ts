@@ -15,4 +15,6 @@ export class ToxConfigWrap {
 class ToxConfig {
 	public nodesFile: string = "nodes.json";
 	public toxcore: string = "lib/libtoxcore.so";
+	public savesFolder: string = "toxsaves";
+	public allowFullSavePath: boolean = false;
 }

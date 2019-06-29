@@ -32,6 +32,13 @@ interface IMessageQueueEntry {
 	buffer?: Buffer;
 }
 
+export async function CreateSave(path: string) {
+	const save = new toxcore.Tox({
+		path: Config().tox.toxcore,
+	});
+	await save.saveToFileAsync(path);
+}
+
 export class Client extends EventEmitter {
 	private tox: Toxcore.Tox;
 	private hexFriendLut: {[key: string]: number};
@@ -41,7 +48,9 @@ export class Client extends EventEmitter {
 	private files: {[key: string]: IToxFile};
 	private avatarUrl: string = "";
 	private avatarBuffer: Buffer;
-	constructor(dataPath: string) {
+	constructor(
+		private dataPath: string,
+	) {
 		super();
 		this.hexFriendLut = {};
 		this.friendHexLut = {};
@@ -65,6 +74,7 @@ export class Client extends EventEmitter {
 
 		this.tox.on("friendRequest", async (e) => {
 			await this.tox.addFriendNoRequestAsync(e.publicKey());
+			await this.saveToFile();
 		});
 
 		this.tox.on("friendConnectionStatus", async (e) => {
@@ -276,6 +286,10 @@ export class Client extends EventEmitter {
 			kind: "avatar",
 			size: buffer.byteLength,
 		};
+	}
+
+	public async saveToFile() {
+		await this.tox.saveToFileAsync(this.dataPath);
 	}
 
 	private async sendMessageFriend(friend: number, text: string, emote: boolean) {
