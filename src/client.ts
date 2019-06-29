@@ -178,11 +178,13 @@ export class Client extends EventEmitter {
 			}
 			const length = e.length();
 			const position = e.position();
-			log.verbose(`Received file chunk request with key ${fileKey} (length=${length} position=${position})`);
+			log.verbose(`Received file chunk request with key ${fileKey} (length=${length} position=${position} sending=${f.sending})`);
+/*
 			if (!f.sending) {
 				// not sending, ntohing to do
 				return;
 			}
+*/
 			if (length === 0) {
 				log.verbose("Done sending file");
 				delete this.files[fileKey];
@@ -190,20 +192,11 @@ export class Client extends EventEmitter {
 			}
 			const sendData = Buffer.alloc(length);
 			f.buffer.copy(sendData, 0, position, position + length);
-/*
-			if (position + length > f.size) {
-				sendData = sendData.slice(0, f.size - position);
-			}
-*/
+
 			try {
 				await this.tox.sendFileChunkAsync(e.friend(), e.file(), position, sendData);
 			} catch (err) {
-				if (err.code === Toxcore.Consts.TOX_ERR_FILE_SEND_CHUNK_NOT_TRANSFERRING) {
-					log.verbose("Done sending file");
-					delete this.files[fileKey];
-				} else {
-					throw err;
-				}
+				log.error(`Error sending file with key ${fileKey} (length=${length} position=${position})`, err);
 			}
 		});
 

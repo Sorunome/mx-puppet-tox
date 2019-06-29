@@ -71,13 +71,14 @@ export class Tox {
 			return;
 		}
 		const client = new Client(p.data.savefile);
+		p.client = client;
 		const userInfo = await this.puppet.getPuppetMxidInfo(puppetId);
 		if (userInfo) {
 			if (userInfo.name) {
 				await client.setName(userInfo.name);
 			}
 			if (userInfo.avatarUrl) {
-				await client.setAvatar(userInfo.avatarUrl);
+				await this.handlePuppetAvatar(puppetId, userInfo.avatarUrl, userInfo.avatarMxc);
 			}
 		}
 		client.on("connected", async (key: string) => {
@@ -120,7 +121,6 @@ export class Tox {
 			const params = this.getSendParams(puppetId, key);
 			await this.puppet.setUserTyping(params, typing);
 		});
-		p.client = client;
 		try {
 			await client.connect();
 		} catch (err) {
@@ -172,6 +172,7 @@ export class Tox {
 		if (!p) {
 			return;
 		}
+		url = url.replace("download", "thumbnail") + "?width=800&height=800"
 		await p.client.setAvatar(url);
 	}
 
