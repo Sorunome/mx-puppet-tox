@@ -2,25 +2,21 @@ import { Log, Util } from "mx-puppet-bridge";
 import { EventEmitter } from "events";
 import * as Bluebird from "bluebird";
 import * as Toxcore from "js-toxcore-c";
+import * as fs from "fs";
 import { Buffer } from "buffer";
 const toxcore = Bluebird.promisifyAll(Toxcore);
+import { Config } from "./index";
 
 const log = new Log("ToxPuppet:Client");
 
-const nodes = [
-	{ maintainer: "saneki",
-		address: "96.31.85.154",
-		port: 33445,
-		key: "674153CF49616CD1C4ADF44B004686FC1F6C9DCDD048EF89B117B3F02AA0B778" },
-	{ maintainer: "Impyy",
-		address: "178.62.250.138",
-		port: 33445,
-		key: "788236D34978D1D5BD822F0A5BEBD2C53C64CC31CD3149350EE27D4D9A2F9B6B" },
-	{ maintainer: "sonOfRa",
-		address: "144.76.60.215",
-		port: 33445,
-		key: "04119E835DF3E78BACF0F84235B300546AF8B936F035185E2A8E9E0A67C8924F" },
-];
+const readFile = Bluebird.promisify(fs.readFile);
+
+export interface IBootstrapNode {
+	maintainer?: string;
+	address: string;
+	port: number;
+	key: string;
+}
 
 export interface IToxFile {
 	name: string;
@@ -54,8 +50,7 @@ export class Client extends EventEmitter {
 		this.files = {};
 		this.tox = new toxcore.Tox({
 			data: dataPath,
-			path: "lib/libtoxcore.so",
-			crypto: "lib/libtoxcore.so",
+			path: Config().tox.toxcore,
 		});
 	}
 
@@ -397,8 +392,14 @@ export class Client extends EventEmitter {
 	}
 
 	private async bootstrap() {
-		for (const node of nodes) {
-			await this.tox.bootstrap(node.address, node.port, node.key);
+		const nodesData = await readFile(Config().tox.nodesFile);
+		try {
+			const nodes = JSON.parse(nodesData);
+			for (const node of nodes) {
+				await this.tox.bootstrap(node.address, node.port, node.key);
+			}
+		} catch (err) {
+			log.error("Failed to bootstrap:", err);
 		}
 	}
 }
