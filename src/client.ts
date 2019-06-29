@@ -164,9 +164,14 @@ export class Client extends EventEmitter {
 			if (!f) {
 				return;
 			}
-			log.verbose(`Received file chunk request with key ${fileKey}`);
 			const length = e.length();
 			const position = e.position();
+			log.verbose(`Received file chunk request with key ${fileKey} (length=${length} position=${position})`);
+			if (length === 0) {
+				log.verbose("Done sending file");
+				delete this.files[fileKey];
+				return;
+			}
 			const sendData = Buffer.alloc(length);
 			f.buffer.copy(sendData, 0, position, position + length);
 /*
