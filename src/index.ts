@@ -134,7 +134,7 @@ async function run() {
 	puppet.on("puppetName", tox.handlePuppetName.bind(tox));
 	puppet.on("puppetAvatar", tox.handlePuppetAvatar.bind(tox));
 	puppet.setCreateUserHook(tox.getUserParams.bind(tox));
-	puppet.setGetDescHook((puppetId: number, data: any, html: boolean): string => {
+	puppet.setGetDescHook(async (puppetId: number, data: any, html: boolean): Promise<string> => {
 		let s = "Tox";
 		if (data.name) {
 			if (html) {

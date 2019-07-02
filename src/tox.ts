@@ -78,7 +78,7 @@ export class Tox {
 				await client.setName(userInfo.name);
 			}
 			if (userInfo.avatarUrl) {
-				await this.handlePuppetAvatar(puppetId, userInfo.avatarUrl, userInfo.avatarMxc);
+				await this.handlePuppetAvatar(puppetId, userInfo.avatarUrl, userInfo.avatarMxc as string);
 			}
 		}
 		client.on("connected", async (key: string) => {
@@ -97,8 +97,8 @@ export class Tox {
 		client.on("friendAvatar", async (key, data) => {
 			log.verbose(`Updating avatar for ${key}...`);
 			const user = await this.getUserParams(puppetId, key);
-			user.avatarBuffer = data.buffer;
-			await this.puppet.updateUser(user);
+			user!.avatarBuffer = data.buffer;
+			await this.puppet.updateUser(user!);
 		});
 		client.on("friendName", async (key) => {
 			await this.updateUser(puppetId, key);
@@ -147,7 +147,7 @@ export class Tox {
 		if (!p) {
 			return;
 		}
-		await p.client.sendMessage(room.roomId, data.body, data.emote);
+		await p.client.sendMessage(room.roomId, data.body, Boolean(data.emote));
 	}
 
 	public async handleMatrixFile(room: IRemoteChan, data: IFileEvent, event: any) {
@@ -172,7 +172,7 @@ export class Tox {
 		if (!p) {
 			return;
 		}
-		url = url.replace("download", "thumbnail") + "?width=800&height=800"
+		url = url.replace("download", "thumbnail") + "?width=800&height=800";
 		await p.client.setAvatar(url);
 	}
 

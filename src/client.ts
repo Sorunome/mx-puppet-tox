@@ -178,7 +178,8 @@ export class Client extends EventEmitter {
 			}
 			const length = e.length();
 			const position = e.position();
-			log.verbose(`Received file chunk request with key ${fileKey} (length=${length} position=${position} sending=${f.sending})`);
+			log.verbose(`Received file chunk request with key ${fileKey} ` +
+				`(length=${length} position=${position} sending=${f.sending})`);
 /*
 			if (!f.sending) {
 				// not sending, ntohing to do
@@ -190,11 +191,22 @@ export class Client extends EventEmitter {
 				delete this.files[fileKey];
 				return;
 			}
-			const sendData = Buffer.alloc(length);
+			let sendData = Buffer.alloc(length);
 			f.buffer.copy(sendData, 0, position, position + length);
+
+			let done = false;
+			if (position + length > f.size) {
+				sendData = sendData.slice(0, f.size - position);
+				done = true;
+			}
 
 			try {
 				await this.tox.sendFileChunkAsync(e.friend(), e.file(), position, sendData);
+				if (done) {
+					log.verbose("Done sending file");
+					delete this.files[fileKey];
+					return;
+				}
 			} catch (err) {
 				log.error(`Error sending file with key ${fileKey} (length=${length} position=${position})`, err);
 			}
@@ -276,6 +288,10 @@ export class Client extends EventEmitter {
 		this.sendAvatarUpdate();
 	}
 
+	public async saveToFile() {
+		await this.tox.saveToFileAsync(this.dataPath);
+	}
+
 	private async sendAvatarUpdate() {
 		for (const f of Object.keys(this.friendsStatus)) {
 			const friend = Number(f);
@@ -302,10 +318,6 @@ export class Client extends EventEmitter {
 			size: buffer.byteLength,
 			sending: false,
 		};
-	}
-
-	public async saveToFile() {
-		await this.tox.saveToFileAsync(this.dataPath);
 	}
 
 	private async sendMessageFriend(friend: number, text: string, emote: boolean) {
