@@ -1,4 +1,4 @@
-import { Log, Util } from "mx-puppet-bridge";
+import { Log, Util, IRetList } from "mx-puppet-bridge";
 import { EventEmitter } from "events";
 import * as Bluebird from "bluebird";
 import * as Toxcore from "js-toxcore-c";
@@ -290,6 +290,29 @@ export class Client extends EventEmitter {
 
 	public async saveToFile() {
 		await this.tox.saveToFileAsync(this.dataPath);
+	}
+
+	public async getRoomForUser(hex: string): Promise<string | null> {
+		const friend = await this.getHexFriendLut(hex);
+		if (!friend) {
+			return null;
+		}
+		return await this.getFriendPublicKeyHex(friend);
+	}
+
+	public async listUsers(): Promise<IRetList[]> {
+		const ret: IRetList[] = [];
+		await this.populateFriendList();
+		const friends = await this.tox.getFriendListAsync();
+		for (const f of friends) {
+			const hex = await this.getFriendPublicKeyHex(f);
+			const name = await this.getNameById(hex);
+			ret.push({
+				name,
+				id: hex,
+			});
+		}
+		return ret;
 	}
 
 	private async sendAvatarUpdate() {

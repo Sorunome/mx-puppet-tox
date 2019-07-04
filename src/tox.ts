@@ -7,6 +7,7 @@ import {
 	IFileEvent,
 	Log,
 	Util,
+	IRetList,
 } from "mx-puppet-bridge";
 import { Client, IToxFile } from "./client";
 
@@ -202,5 +203,37 @@ export class Tox {
 			return;
 		}
 		await this.puppet.updateUser(user);
+	}
+
+	public async createUser(user: IRemoteUser): Promise<IRemoteUser | null> {
+		return this.getUserParams(user.puppetId, user.userId);
+	}
+
+	public async createChan(chan: IRemoteChan): Promise<IRemoteChan | null> {
+		const user = this.getUserParams(chan.puppetId, chan.roomId);
+		if (!user) {
+			return null;
+		}
+		return this.getSendParams(chan.puppetId, chan.roomId).chan;
+	}
+
+	public async getDmRoom(user: IRemoteUser): Promise<string | null> {
+		const p = this.puppets[user.puppetId];
+		if (!p) {
+			return null;
+		}
+		const roomId = await p.client.getRoomForUser(user.userId);
+		if (!roomId) {
+			return null;
+		}
+		return roomId;
+	}
+
+	public async listUsers(puppetId: number): Promise<IRetList[]> {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return [];
+		}
+		return await p.client.listUsers();
 	}
 }

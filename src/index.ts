@@ -133,7 +133,10 @@ async function run() {
 	puppet.on("file", tox.handleMatrixFile.bind(tox));
 	puppet.on("puppetName", tox.handlePuppetName.bind(tox));
 	puppet.on("puppetAvatar", tox.handlePuppetAvatar.bind(tox));
-	puppet.setCreateUserHook(tox.getUserParams.bind(tox));
+	puppet.setCreateUserHook(tox.createUser.bind(tox));
+	puppet.setCreateChanHook(tox.createChan.bind(tox));
+	puppet.setGetDmRoomIdHook(tox.getDmRoom.bind(tox));
+	puppet.setListUsersHook(tox.listUsers.bind(tox));
 	puppet.setGetDescHook(async (puppetId: number, data: any, html: boolean): Promise<string> => {
 		let s = "Tox";
 		if (data.name) {
