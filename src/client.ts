@@ -180,12 +180,12 @@ export class Client extends EventEmitter {
 			const position = e.position();
 			log.verbose(`Received file chunk request with key ${fileKey} ` +
 				`(length=${length} position=${position} sending=${f.sending})`);
-/*
+
 			if (!f.sending) {
 				// not sending, ntohing to do
 				return;
 			}
-*/
+
 			if (length === 0) {
 				log.verbose("Done sending file");
 				delete this.files[fileKey];
@@ -198,6 +198,7 @@ export class Client extends EventEmitter {
 			if (position + length > f.size) {
 				sendData = sendData.slice(0, f.size - position);
 				done = true;
+				log.verbose("Truncated length to", f.size - position);
 			}
 
 			try {
@@ -209,6 +210,10 @@ export class Client extends EventEmitter {
 				}
 			} catch (err) {
 				log.error(`Error sending file with key ${fileKey} (length=${length} position=${position})`, err);
+				log.error("Canceling request...");
+				await this.tox.controlFileAsync(e.friend(), e.file(), "cancel");
+				delete this.files[fileKey];
+				return;
 			}
 		});
 
@@ -365,13 +370,15 @@ export class Client extends EventEmitter {
 	private async sendFileFriend(friend: number, buffer: Buffer, filename: string = "") {
 		try {
 			const fileNum = await this.tox.sendFileAsync(friend, Toxcore.Consts.TOX_FILE_KIND_DATA, filename, buffer.byteLength);
-			this.files[`${friend};${fileNum}`] = {
+			const fileKey = `${friend};${fileNum}`;
+			this.files[fileKey] = {
 				name: filename,
 				buffer,
 				kind: "data",
 				size: buffer.byteLength,
 				sending: false,
 			};
+			log.verbose(`Started sending file with key ${fileKey}`);
 		} catch (err) {
 			if (err.code !== Toxcore.Consts.TOX_ERR_FILE_SEND_FRIEND_NOT_CONNECTED || this.isFriendConnected(friend)) {
 				throw err;
