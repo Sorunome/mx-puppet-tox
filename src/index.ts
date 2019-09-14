@@ -137,28 +137,16 @@ async function run() {
 	puppet.setCreateChanHook(tox.createChan.bind(tox));
 	puppet.setGetDmRoomIdHook(tox.getDmRoom.bind(tox));
 	puppet.setListUsersHook(tox.listUsers.bind(tox));
-	puppet.setGetDescHook(async (puppetId: number, data: any, html: boolean): Promise<string> => {
+	puppet.setGetDescHook(async (puppetId: number, data: any): Promise<string> => {
 		let s = "Tox";
 		if (data.name) {
-			if (html) {
-				s += ` ${escapeHtml(data.name)}`;
-			} else {
-				s += ` ${data.name}`;
-			}
+			s += ` ${data.name}`;
 		}
 		if (data.showpath) {
-			if (html) {
-				s += ` savefile <code>${escapeHtml(data.showpath)}</code>`;
-			} else {
-				s += ` savefile "${data.showpath}"`;
-			}
+			s += ` savefile \`${data.showpath}\``;
 		}
 		if (data.key) {
-			if (html) {
-				s += `with public key <code>${data.key}</code>`;
-			} else {
-				s += `with public key "${data.key}"`;
-			}
+			s += `with public key \`${data.key}\``;
 		}
 		return s;
 	});

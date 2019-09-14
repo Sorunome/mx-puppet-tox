@@ -86,6 +86,7 @@ export class Tox {
 			const d = this.puppets[puppetId].data;
 			d.key = key;
 			await this.puppet.setPuppetData(puppetId, d);
+			await this.puppet.sendStatusMessage(puppetId, "connected");
 		});
 		client.on("message", async (data) => {
 			log.verbose("Got new message event");
@@ -126,6 +127,7 @@ export class Tox {
 			await client.connect();
 		} catch (err) {
 			log.warn("Failed to connect client", err);
+			await this.puppet.sendStatusMessage(puppetId, `Failed to connect client: ${err}`);
 			throw err;
 		}
 	}
