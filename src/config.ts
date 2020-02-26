@@ -14,6 +14,7 @@ limitations under the License.
 export class ToxConfigWrap {
 	public tox: ToxConfig = new ToxConfig();
 
+	// tslint:disable-next-line no-any
 	public applyConfig(newConfig: {[key: string]: any}, configLayer: {[key: string]: any} = this) {
 		Object.keys(newConfig).forEach((key) => {
 			if (configLayer[key] instanceof Object && !(configLayer[key] instanceof Array)) {

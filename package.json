@@ -17,7 +17,7 @@
     "events": "^3.0.0",
     "js-toxcore-c": "git+https://github.com/Pigpog/js-toxcore-c.git#605a09cc60de68b79e04dfcee69e794e1819206b",
     "js-yaml": "^3.13.1",
-    "mx-puppet-bridge": "0.0.30",
+    "mx-puppet-bridge": "0.0.30-1",
     "segfault-handler": "^1.3.0",
     "tslint": "^5.17.0",
     "typescript": "^3.7.4",

@@ -21,14 +21,22 @@ import {
 	Log,
 	Util,
 	IRetList,
+	IPuppetData,
 } from "mx-puppet-bridge";
-import { Client, IToxFile } from "./client";
+import { Client, IToxMessage, IToxFile } from "./client";
 
 const log = new Log("ToxPuppet:tox");
 
+export interface IToxPuppetData extends IPuppetData {
+	name: string;
+	savefile: string;
+	showpath: string;
+	key?: string;
+}
+
 interface IToxPuppet {
 	client: Client;
-	data: any;
+	data: IToxPuppetData;
 }
 
 interface IToxPuppets {
@@ -182,7 +190,7 @@ export class Tox {
 		}
 	}
 
-	public async handleToxMessage(puppetId: number, data: any) {
+	public async handleToxMessage(puppetId: number, data: IToxMessage) {
 		const params = this.getSendParams(puppetId, data.id);
 		await this.puppet.sendMessage(params, {
 			body: data.message,
@@ -195,7 +203,7 @@ export class Tox {
 		await this.puppet.sendFileDetect(params, data.buffer, data.name);
 	}
 
-	public async handleMatrixMessage(room: IRemoteRoom, data: IMessageEvent, event: any) {
+	public async handleMatrixMessage(room: IRemoteRoom, data: IMessageEvent) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -203,7 +211,7 @@ export class Tox {
 		await p.client.sendMessage(room.roomId, data.body, Boolean(data.emote));
 	}
 
-	public async handleMatrixFile(room: IRemoteRoom, data: IFileEvent, event: any) {
+	public async handleMatrixFile(room: IRemoteRoom, data: IFileEvent) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -229,7 +237,7 @@ export class Tox {
 		await p.client.setAvatar(url);
 	}
 
-	public async newPuppet(puppetId: number, data: any) {
+	public async newPuppet(puppetId: number, data: IToxPuppetData) {
 		log.info(`Adding new Puppet: puppetId=${puppetId}`);
 		if (this.puppets[puppetId]) {
 			await this.removePuppet(puppetId);

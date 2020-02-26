@@ -30,6 +30,12 @@ export interface IBootstrapNode {
 	key: string;
 }
 
+export interface IToxMessage {
+	id: string;
+	message: string;
+	emote: boolean;
+}
+
 export interface IToxFile {
 	name: string;
 	buffer: Buffer;
@@ -110,11 +116,12 @@ export class Client extends EventEmitter {
 		this.tox.on("friendMessage", async (e) => {
 			const key = await this.getFriendPublicKeyHex(e.friend());
 			log.verbose(`Received new message from key ${key}`);
-			this.emit("message", {
+			const message: IToxMessage = {
 				id: key,
 				message: e.message(),
 				emote: e._messageType === Toxcore.Consts.TOX_MESSAGE_TYPE_ACTION,
-			});
+			};
+			this.emit("message", message);
 		});
 
 		this.tox.on("friendStatus", async (e) => {
@@ -338,10 +345,12 @@ export class Client extends EventEmitter {
 		for (const f of friends) {
 			const hex = await this.getFriendPublicKeyHex(f);
 			const name = await this.getNameById(hex);
-			ret.push({
-				name,
-				id: hex,
-			});
+			if (name) {
+				ret.push({
+					name,
+					id: hex,
+				});
+			}
 		}
 		return ret;
 	}

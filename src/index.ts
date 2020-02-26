@@ -21,7 +21,7 @@ import {
 } from "mx-puppet-bridge";
 import * as commandLineArgs from "command-line-args";
 import * as commandLineUsage from "command-line-usage";
-import { Tox } from "./tox";
+import { Tox, IToxPuppetData } from "./tox";
 import { IBootstrapNode, CreateSave } from "./client";
 import * as fs from "fs";
 import { ToxConfigWrap } from "./config";
@@ -106,7 +106,7 @@ async function updateBootstrapNodes() {
 		log.warn("Current bootstrap nodes file is invalid json, using blank one", err);
 		currentNodes = DefaultNodes;
 	}
-	let newNodesData: any = {};
+	let newNodesData: any = {}; // tslint:disable-line no-any
 	try {
 		const str = (await Util.DownloadFile("https://nodes.tox.chat/json")).toString("utf-8");
 		newNodesData = JSON.parse(str);
@@ -154,7 +154,7 @@ async function run() {
 	puppet.setCreateRoomHook(tox.createRoom.bind(tox));
 	puppet.setGetDmRoomIdHook(tox.getDmRoom.bind(tox));
 	puppet.setListUsersHook(tox.listUsers.bind(tox));
-	puppet.setGetDescHook(async (puppetId: number, data: any): Promise<string> => {
+	puppet.setGetDescHook(async (puppetId: number, data: IToxPuppetData): Promise<string> => {
 		let s = "Tox";
 		if (data.name) {
 			s += ` ${data.name}`;
@@ -206,11 +206,12 @@ async function run() {
 			}
 		}
 		retData.success = true;
-		retData.data = {
+		const data: IToxPuppetData = {
 			name: str,
 			savefile: path,
 			showpath,
 		};
+		retData.data = data;
 		return retData;
 	});
 	puppet.setBotHeaderMsgHook((): string => {
