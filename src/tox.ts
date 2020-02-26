@@ -1,8 +1,21 @@
+/*
+Copyright 2019, 2020 mx-puppet-tox
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 import {
 	PuppetBridge,
 	IRemoteUser,
 	IReceiveParams,
-	IRemoteChan,
+	IRemoteRoom,
 	IMessageEvent,
 	IFileEvent,
 	Log,
@@ -41,7 +54,7 @@ export class Tox {
 
 	public getSendParams(puppetId: number, hex: string): IReceiveParams {
 		return {
-			chan: {
+			room: {
 				roomId: hex,
 				puppetId,
 				isDirect: true,
@@ -83,45 +96,78 @@ export class Tox {
 			}
 		}
 		client.on("connected", async (key: string) => {
-			const d = this.puppets[puppetId].data;
-			d.key = key;
-			await this.puppet.setPuppetData(puppetId, d);
-			await this.puppet.sendStatusMessage(puppetId, "connected");
+			try {
+				log.verbose("Got connected event");
+				const d = this.puppets[puppetId].data;
+				d.key = key;
+				await this.puppet.setPuppetData(puppetId, d);
+				await this.puppet.sendStatusMessage(puppetId, "connected");
+			} catch (err) {
+				log.error("Error handling tox connected event", err.error || err.body || err);
+			}
 		});
 		client.on("message", async (data) => {
-			log.verbose("Got new message event");
-			await this.handleToxMessage(puppetId, data);
+			try {
+				log.verbose("Got new message event");
+				await this.handleToxMessage(puppetId, data);
+			} catch (err) {
+				log.error("Error handling tox message event", err.error || err.body || err);
+			}
 		});
 		client.on("file", async (key, data) => {
-			log.verbose("Got new file event");
-			await this.handleToxFile(puppetId, key, data);
+			try {
+				log.verbose("Got new file event");
+				await this.handleToxFile(puppetId, key, data);
+			} catch (err) {
+				log.error("Error handling tox file event", err.error || err.body || err);
+			}
 		});
 		client.on("friendAvatar", async (key, data) => {
-			log.verbose(`Updating avatar for ${key}...`);
-			const user = await this.getUserParams(puppetId, key);
-			user!.avatarBuffer = data.buffer;
-			await this.puppet.updateUser(user!);
+			try {
+				log.verbose(`Updating avatar for ${key}...`);
+				const user = await this.getUserParams(puppetId, key);
+				user!.avatarBuffer = data.buffer;
+				await this.puppet.updateUser(user!);
+			} catch (err) {
+				log.error("Error handling tox friendAvatar event", err.error || err.body || err);
+			}
 		});
 		client.on("friendName", async (key) => {
-			await this.updateUser(puppetId, key);
+			try {
+				await this.updateUser(puppetId, key);
+			} catch (err) {
+				log.error("Error handling tox friendName event", err.error || err.body || err);
+			}
 		});
 		client.on("friendStatus", async (key, status) => {
-			const matrixPresence = {
-				online: "online",
-				offline: "offline",
-				away: "unavailable",
-				busy: "unavailable",
-			}[status];
-			const user = this.getSendParams(puppetId, key).user;
-			await this.puppet.setUserPresence(user, matrixPresence);
+			try {
+				const matrixPresence = {
+					online: "online",
+					offline: "offline",
+					away: "unavailable",
+					busy: "unavailable",
+				}[status];
+				const user = this.getSendParams(puppetId, key).user;
+				await this.puppet.setUserPresence(user, matrixPresence);
+			} catch (err) {
+				log.error("Error handling tox friendStatus event", err.error || err.body || err);
+			}
 		});
 		client.on("friendStatusMessage", async (key, msg) => {
-			const user = this.getSendParams(puppetId, key).user;
-			await this.puppet.setUserStatus(user, msg);
+			try {
+				const user = this.getSendParams(puppetId, key).user;
+				await this.puppet.setUserStatus(user, msg);
+			} catch (err) {
+				log.error("Error handling tox friendStatusMessage event", err.error || err.body || err);
+			}
 		});
 		client.on("friendTyping", async (key, typing) => {
-			const params = this.getSendParams(puppetId, key);
-			await this.puppet.setUserTyping(params, typing);
+			try {
+				const params = this.getSendParams(puppetId, key);
+				await this.puppet.setUserTyping(params, typing);
+			} catch (err) {
+				log.error("Error handling tox friendTyping event", err.error || err.body || err);
+			}
 		});
 		try {
 			await client.connect();
@@ -145,7 +191,7 @@ export class Tox {
 		await this.puppet.sendFileDetect(params, data.buffer, data.name);
 	}
 
-	public async handleMatrixMessage(room: IRemoteChan, data: IMessageEvent, event: any) {
+	public async handleMatrixMessage(room: IRemoteRoom, data: IMessageEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -153,7 +199,7 @@ export class Tox {
 		await p.client.sendMessage(room.roomId, data.body, Boolean(data.emote));
 	}
 
-	public async handleMatrixFile(room: IRemoteChan, data: IFileEvent, event: any) {
+	public async handleMatrixFile(room: IRemoteRoom, data: IFileEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -211,12 +257,12 @@ export class Tox {
 		return this.getUserParams(user.puppetId, user.userId);
 	}
 
-	public async createChan(chan: IRemoteChan): Promise<IRemoteChan | null> {
-		const user = this.getUserParams(chan.puppetId, chan.roomId);
+	public async createRoom(room: IRemoteRoom): Promise<IRemoteRoom | null> {
+		const user = this.getUserParams(room.puppetId, room.roomId);
 		if (!user) {
 			return null;
 		}
-		return this.getSendParams(chan.puppetId, chan.roomId).chan;
+		return this.getSendParams(room.puppetId, room.roomId).room;
 	}
 
 	public async getDmRoom(user: IRemoteUser): Promise<string | null> {

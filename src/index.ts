@@ -1,15 +1,27 @@
+/*
+Copyright 2019, 2020 mx-puppet-tox
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 import {
 	PuppetBridge,
-	IPuppetBridgeFeatures,
 	IPuppetBridgeRegOpts,
 	Log,
 	IRetData,
 	Util,
+	IProtocolInformation,
 } from "mx-puppet-bridge";
 import * as commandLineArgs from "command-line-args";
 import * as commandLineUsage from "command-line-usage";
 import { Tox } from "./tox";
-import * as escapeHtml from "escape-html";
 import { IBootstrapNode, CreateSave } from "./client";
 import * as fs from "fs";
 import { ToxConfigWrap } from "./config";
@@ -46,12 +58,17 @@ if (options.help) {
 	process.exit(0);
 }
 
-const features = {
-	file: true, // no need for the others as we auto-detect types anyways
-	presence: true, // we want to be able to send presence
-} as IPuppetBridgeFeatures;
+const protocol = {
+	features: {
+		file: true, // no need for the others as we auto-detect types anyways
+		presence: true, // we want to be able to send presence
+	},
+	id: "tox",
+	displayname: "Tox",
+	externalUrl: "https://tox.chat/",
+} as IProtocolInformation;
 
-const puppet = new PuppetBridge(options["registration-file"], options.config, features);
+const puppet = new PuppetBridge(options["registration-file"], options.config, protocol);
 
 if (options.register) {
 	// okay, all we have to do is generate a registration file
@@ -134,7 +151,7 @@ async function run() {
 	puppet.on("puppetName", tox.handlePuppetName.bind(tox));
 	puppet.on("puppetAvatar", tox.handlePuppetAvatar.bind(tox));
 	puppet.setCreateUserHook(tox.createUser.bind(tox));
-	puppet.setCreateChanHook(tox.createChan.bind(tox));
+	puppet.setCreateRoomHook(tox.createRoom.bind(tox));
 	puppet.setGetDmRoomIdHook(tox.getDmRoom.bind(tox));
 	puppet.setListUsersHook(tox.listUsers.bind(tox));
 	puppet.setGetDescHook(async (puppetId: number, data: any): Promise<string> => {
@@ -150,7 +167,7 @@ async function run() {
 		}
 		return s;
 	});
-	puppet.setGetDastaFromStrHook(async (str: string): Promise<IRetData> => {
+	puppet.setGetDataFromStrHook(async (str: string): Promise<IRetData> => {
 		const retData = {
 			success: false,
 		} as IRetData;

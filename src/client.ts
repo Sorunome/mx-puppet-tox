@@ -1,15 +1,27 @@
+/*
+Copyright 2019, 2020 mx-puppet-tox
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 import { Log, Util, IRetList } from "mx-puppet-bridge";
 import { EventEmitter } from "events";
-import * as Bluebird from "bluebird";
+import * as promisifyAll from "util-promisifyall";
 import * as Toxcore from "js-toxcore-c";
 import * as fs from "fs";
 import { Buffer } from "buffer";
-const toxcore = Bluebird.promisifyAll(Toxcore);
 import { Config } from "./index";
 
 const log = new Log("ToxPuppet:Client");
 
-const readFile = Bluebird.promisify(fs.readFile);
+const readFile = promisifyAll(fs).readFileAsync;
 
 export interface IBootstrapNode {
 	maintainer?: string;
@@ -34,9 +46,9 @@ interface IMessageQueueEntry {
 }
 
 export async function CreateSave(path: string) {
-	const save = new toxcore.Tox({
+	const save = promisifyAll(new Toxcore.Tox({
 		path: Config().tox.toxcore,
-	});
+	}));
 	await save.saveToFileAsync(path);
 }
 
@@ -58,10 +70,10 @@ export class Client extends EventEmitter {
 		this.friendsStatus = {};
 		this.friendsMessageQueue = {};
 		this.files = {};
-		this.tox = new toxcore.Tox({
+		this.tox = promisifyAll(new Toxcore.Tox({
 			data: dataPath,
 			path: Config().tox.toxcore,
-		});
+		}));
 	}
 
 	public async connect() {
@@ -287,7 +299,12 @@ export class Client extends EventEmitter {
 		}
 		log.verbose(`Setting avatar to ${url}`);
 		this.avatarUrl = url;
-		this.avatarBuffer = await Util.DownloadFile(url);
+		const buffer = await Util.DownloadFile(url);
+		if (!buffer) {
+			log.warn("Avatar buffer is empty");
+			return;
+		}
+		this.avatarBuffer = buffer;
 		// we do this async in the background
 		// tslint:disable-next-line:no-floating-promises
 		this.sendAvatarUpdate();
