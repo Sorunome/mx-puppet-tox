@@ -45,10 +45,14 @@ export class Tox {
 		if (!this.puppets[puppetId]) {
 			return null;
 		}
+		const name = await this.puppets[puppetId].client.getNameById(hex);
+		if (!name) {
+			return null;
+		}
 		return {
 			userId: hex,
 			puppetId,
-			name: await this.puppets[puppetId].client.getNameById(hex),
+			name,
 		} as IRemoteUser;
 	}
 
@@ -254,11 +258,11 @@ export class Tox {
 	}
 
 	public async createUser(user: IRemoteUser): Promise<IRemoteUser | null> {
-		return this.getUserParams(user.puppetId, user.userId);
+		return await this.getUserParams(user.puppetId, user.userId);
 	}
 
 	public async createRoom(room: IRemoteRoom): Promise<IRemoteRoom | null> {
-		const user = this.getUserParams(room.puppetId, room.roomId);
+		const user = await this.getUserParams(room.puppetId, room.roomId);
 		if (!user) {
 			return null;
 		}

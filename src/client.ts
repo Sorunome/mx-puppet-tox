@@ -270,11 +270,17 @@ export class Client extends EventEmitter {
 
 	public async sendMessage(hex: string, text: string, emote: boolean) {
 		const friend = await this.getHexFriendLut(hex);
+		if (friend === null) {
+			throw new Error("Can't send message to unknown friend");
+		}
 		await this.sendMessageFriend(friend, text, emote);
 	}
 
 	public async sendFile(hex: string, buffer: Buffer, filename: string = "") {
 		const friend = await this.getHexFriendLut(hex);
+		if (friend === null) {
+			throw new Error("Can't send file to unknown friend");
+		}
 		await this.sendFileFriend(friend, buffer, filename);
 	}
 
@@ -282,8 +288,11 @@ export class Client extends EventEmitter {
 		return await this.tox.getAddressHexAsyncAsync();
 	}
 
-	public async getNameById(hex: string): Promise<string> {
+	public async getNameById(hex: string): Promise<string | null> {
 		const id = await this.getHexFriendLut(hex);
+		if (id === null) {
+			return null;
+		}
 		const name = await this.tox.getFriendNameAsync(id);
 		return name.replace(/\0/g, "");
 	}
@@ -316,7 +325,7 @@ export class Client extends EventEmitter {
 
 	public async getRoomForUser(hex: string): Promise<string | null> {
 		const friend = await this.getHexFriendLut(hex);
-		if (!friend) {
+		if (friend === null) {
 			return null;
 		}
 		return await this.getFriendPublicKeyHex(friend);
@@ -412,11 +421,14 @@ export class Client extends EventEmitter {
 		}
 	}
 
-	private async getHexFriendLut(hex: string): Promise<number> {
+	private async getHexFriendLut(hex: string): Promise<number | null> {
 		if (this.hexFriendLut[hex] !== undefined) {
 			return this.hexFriendLut[hex];
 		}
 		await this.populateFriendList();
+		if (this.hexFriendLut[hex] === undefined) {
+			return null;
+		}
 		return this.hexFriendLut[hex];
 	}
 
