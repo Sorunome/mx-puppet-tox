@@ -22,8 +22,10 @@ import {
 	Util,
 	IRetList,
 	IPuppetData,
+	SendMessageFn,
 } from "mx-puppet-bridge";
-import { Client, IToxMessage, IToxFile } from "./client";
+import { Config } from "./index";
+import { Client, IToxMessage, IToxFile } from "toxclient";
 
 const log = new Log("ToxPuppet:tox");
 
@@ -53,7 +55,7 @@ export class Tox {
 		if (!this.puppets[puppetId]) {
 			return null;
 		}
-		const name = await this.puppets[puppetId].client.getNameById(hex);
+		const name = await this.puppets[puppetId].client.getUserName(hex);
 		if (!name) {
 			return null;
 		}
@@ -96,7 +98,7 @@ export class Tox {
 		if (!p) {
 			return;
 		}
-		const client = new Client(p.data.savefile);
+		const client = new Client(p.data.savefile, Config().tox.nodesFile, Config().tox.toxcore);
 		p.client = client;
 		const userInfo = await this.puppet.getPuppetMxidInfo(puppetId);
 		if (userInfo) {
@@ -189,6 +191,25 @@ export class Tox {
 				log.error("Error handling tox friendTyping event", err.error || err.body || err);
 			}
 		});
+		client.on("fileRecv", async (key, file, fileObj) => {
+			try {
+				await client.acceptFile(key, file);
+			} catch (err) {
+				log.error("Error handling tox fileRecv event", err.error || err.body || err);
+			}
+		});
+		client.on("friendRequest", async (key, message) => {
+			try {
+				await this.puppet.sendStatusMessage(puppetId,
+`New incoming friends request from key \`${key}\` with the following message:
+
+${message}
+
+Type \`acceptfriend ${puppetId} ${key}\` to accept it.`);
+			} catch (err) {
+				log.error("Error handling tox friendRequest event", err.error || err.body || err);
+			}
+		});
 		try {
 			await client.connect();
 		} catch (err) {
@@ -250,7 +271,7 @@ export class Tox {
 		if (this.puppets[puppetId]) {
 			await this.removePuppet(puppetId);
 		}
-		const client = new Client(data.savefile);
+		const client = new Client(data.savefile, Config().tox.nodesFile, Config().tox.toxcore);
 		this.puppets[puppetId] = {
 			client,
 			data,
@@ -290,11 +311,10 @@ export class Tox {
 		if (!p) {
 			return null;
 		}
-		const roomId = await p.client.getRoomForUser(user.userId);
-		if (!roomId) {
+		if (!(await p.client.isUserFriend(user.userId))) {
 			return null;
 		}
-		return roomId;
+		return user.userId;
 	}
 
 	public async listUsers(puppetId: number): Promise<IRetList[]> {
@@ -302,6 +322,64 @@ export class Tox {
 		if (!p) {
 			return [];
 		}
-		return await p.client.listUsers();
+		const friends = await p.client.listFriends();
+		const ret: IRetList[] = [];
+		for (const f of friends) {
+			const name = await p.client.getUserName(f);
+			if (name) {
+				ret.push({
+					name,
+					id: f,
+				});
+			}
+		}
+		return ret;
+	}
+
+	public async commandAcceptFriend(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		try {
+			await p.client.acceptFriend(param.toLowerCase());
+			await sendMessage("Accepted friends request!");
+		} catch (err) {
+			await sendMessage("Couldn't accept friends request!");
+			log.warn("Couldn't accept friends request", err);
+		}
+	}
+
+	public async commandAddFriend(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		try {
+			const parts = param.split(" ");
+			const key = parts.shift()!.toLowerCase();
+			await p.client.addFriend(key, parts.join(" "));
+			await sendMessage("Added new friend!");
+		} catch (err) {
+			await sendMessage("Couldn't add new friend!");
+			log.warn("Couldn't add new friend", err);
+		}
+	}
+
+	public async commandRemoveFriend(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		try {
+			await p.client.deleteFriend(param.toLowerCase());
+			await sendMessage("Removed friend!");
+		} catch (err) {
+			await sendMessage("Couldn't remove friend!");
+			log.warn("Couldn't remove friend", err);
+		}
 	}
 }

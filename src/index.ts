@@ -22,11 +22,10 @@ import {
 import * as commandLineArgs from "command-line-args";
 import * as commandLineUsage from "command-line-usage";
 import { Tox, IToxPuppetData } from "./tox";
-import { IBootstrapNode, CreateSave } from "./client";
 import * as fs from "fs";
 import { ToxConfigWrap } from "./config";
 import * as yaml from "js-yaml";
-import { DefaultNodes } from "./defaultnodes";
+import { Util as ToxUtil } from "toxclient";
 
 const log = new Log("ToxPuppet:index");
 
@@ -97,52 +96,10 @@ export function Config(): ToxConfigWrap {
 	return config;
 }
 
-async function updateBootstrapNodes() {
-	let currentNodes: IBootstrapNode[] = [];
-	try {
-		const currentNodesData = fs.readFileSync(Config().tox.nodesFile).toString("utf-8");
-		currentNodes = JSON.parse(currentNodesData);
-	} catch (err) {
-		log.warn("Current bootstrap nodes file is invalid json, using blank one", err);
-		currentNodes = DefaultNodes;
-	}
-	let newNodesData: any = {}; // tslint:disable-line no-any
-	try {
-		const str = (await Util.DownloadFile("https://nodes.tox.chat/json")).toString("utf-8");
-		newNodesData = JSON.parse(str);
-	} catch (err) {
-		log.warn("Unable to fetch node bootstrap list, doing nothing", err);
-		return;
-	}
-	if (!newNodesData.nodes) {
-		log.warn("fetched nodes data isn't an array, doing nothing");
-		return;
-	}
-	for (const node of newNodesData.nodes) {
-		const index = currentNodes.findIndex((n) => n.key === node.public_key);
-		const nodeData = {
-			key: node.public_key,
-			port: node.port,
-			address: node.ipv4,
-			maintainer: node.maintainer,
-		} as IBootstrapNode;
-		if (index !== -1) {
-			currentNodes[index] = nodeData;
-		} else {
-			currentNodes.push(nodeData);
-		}
-	}
-	try {
-		fs.writeFileSync(Config().tox.nodesFile, JSON.stringify(currentNodes));
-	} catch (err) {
-		log.error("Unable to write new nodes file", err);
-	}
-}
-
 async function run() {
 	await puppet.init();
 	readConfig();
-	await updateBootstrapNodes();
+	await ToxUtil.UpdateBootstrapNodesFile(Config().tox.nodesFile);
 	const tox = new Tox(puppet);
 	puppet.on("puppetNew", tox.newPuppet.bind(tox));
 	puppet.on("puppetDelete", tox.deletePuppet.bind(tox));
@@ -159,11 +116,8 @@ async function run() {
 		if (data.name) {
 			s += ` ${data.name}`;
 		}
-		if (data.showpath) {
-			s += ` savefile \`${data.showpath}\``;
-		}
 		if (data.key) {
-			s += `with public key \`${data.key}\``;
+			s += ` with full key \`${data.key}\``;
 		}
 		return s;
 	});
@@ -198,7 +152,7 @@ async function run() {
 		}
 		if (!fileExists) {
 			try {
-				await CreateSave(path);
+				await ToxUtil.CreateSave(path, Config().tox.toxcore);
 			} catch (err) {
 				retData.error = "Failed to create save file, please contact an administrator!";
 				log.error("Failed to create savefile", err);
@@ -216,6 +170,24 @@ async function run() {
 	});
 	puppet.setBotHeaderMsgHook((): string => {
 		return "Tox Puppet Bridge";
+	});
+	puppet.registerCommand("acceptfriend", {
+		fn: tox.commandAcceptFriend.bind(tox),
+		help: `Accept an incoming friends request.
+
+Usage: \`acceptfriend <puppetId> <key>\``,
+	});
+	puppet.registerCommand("addfriend", {
+		fn: tox.commandAddFriend.bind(tox),
+		help: `Adds a new friend. Adding a message is optional
+
+Usage: \`addfriend <puppetId> <key> <message>\``,
+	});
+	puppet.registerCommand("removefriend", {
+		fn: tox.commandRemoveFriend.bind(tox),
+		help: `Removes a friend.
+
+Usage: \`removefriend <puppetId> <key>\``,
 	});
 	await puppet.start();
 }
