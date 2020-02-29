@@ -120,7 +120,7 @@ export class Tox {
 				log.error("Error handling tox connected event", err.error || err.body || err);
 			}
 		});
-		client.on("disconnected", async (key: string) => {
+		client.on("disconnected", async () => {
 			try {
 				log.verbose("Got disconnected event");
 				await this.puppet.sendStatusMessage(puppetId, "disconnected");
