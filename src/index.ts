@@ -25,7 +25,7 @@ import { Tox, IToxPuppetData } from "./tox";
 import * as fs from "fs";
 import { ToxConfigWrap } from "./config";
 import * as yaml from "js-yaml";
-import { Util as ToxUtil, Logger } from "toxclient";
+import { Util as ToxUtil, Logger } from "maybe-a-tox-client";
 
 const log = new Log("ToxPuppet:index");
 

@@ -25,7 +25,7 @@ import {
 	SendMessageFn,
 } from "mx-puppet-bridge";
 import { Config } from "./index";
-import { Client, IToxMessage, IToxFile } from "toxclient";
+import { Client, IToxMessage, IToxFile } from "maybe-a-tox-client";
 
 const log = new Log("ToxPuppet:tox");
 
