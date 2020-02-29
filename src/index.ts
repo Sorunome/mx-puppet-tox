@@ -25,7 +25,7 @@ import { Tox, IToxPuppetData } from "./tox";
 import * as fs from "fs";
 import { ToxConfigWrap } from "./config";
 import * as yaml from "js-yaml";
-import { Util as ToxUtil } from "toxclient";
+import { Util as ToxUtil, Logger } from "toxclient";
 
 const log = new Log("ToxPuppet:index");
 
@@ -92,11 +92,36 @@ function readConfig() {
 	config.applyConfig(yaml.safeLoad(fs.readFileSync(options.config)));
 }
 
+function registerLogging() {
+	const logMap = new Map<string, Log>();
+	const getLogFunc = (level: string) => {
+		// tslint:disable-next-line no-any
+		return (mod: string, args: any[]) => {
+			mod = "ToxClient:" + mod;
+			let logger = logMap.get(mod);
+			if (!logger) {
+				logger = new Log(mod);
+				logMap.set(mod, logger);
+			}
+			logger[level](...args);
+		};
+	};
+	Logger.setLogger({
+		silly: getLogFunc("silly"),
+		debug: getLogFunc("debug"),
+		verbose: getLogFunc("verbose"),
+		info: getLogFunc("info"),
+		warn: getLogFunc("warn"),
+		error: getLogFunc("error"),
+	});
+}
+
 export function Config(): ToxConfigWrap {
 	return config;
 }
 
 async function run() {
+	registerLogging();
 	await puppet.init();
 	readConfig();
 	await ToxUtil.UpdateBootstrapNodesFile(Config().tox.nodesFile);
