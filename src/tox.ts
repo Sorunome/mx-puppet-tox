@@ -262,7 +262,6 @@ Type \`acceptfriend ${puppetId} ${key}\` to accept it.`);
 		if (!p) {
 			return;
 		}
-		url = url.replace("download", "thumbnail") + "?width=800&height=800";
 		await p.client.setAvatar(url);
 	}
 
