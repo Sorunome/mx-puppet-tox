@@ -14,13 +14,13 @@
     "command-line-args": "^5.1.1",
     "command-line-usage": "^5.0.5",
     "js-yaml": "^3.13.1",
-    "mx-puppet-bridge": "0.0.35-2",
+    "mx-puppet-bridge": "0.0.37-3",
     "maybe-a-tox-client": "0.0.1",
     "util-promisifyall": "^1.0.6"
   },
   "devDependencies": {
-    "tslint": "^5.17.0",
-    "typescript": "^3.7.4",
-    "@types/node": "^12.0.8"
+    "@types/node": "^12.12.34",
+    "tslint": "^5.20.1",
+    "typescript": "^3.8.3"
   }
 }
