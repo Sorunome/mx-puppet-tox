@@ -14,7 +14,7 @@
     "command-line-args": "^5.1.1",
     "command-line-usage": "^5.0.5",
     "js-yaml": "^3.13.1",
-    "mx-puppet-bridge": "0.0.37-3",
+    "mx-puppet-bridge": "0.0.39",
     "maybe-a-tox-client": "0.0.1",
     "util-promisifyall": "^1.0.6"
   },
