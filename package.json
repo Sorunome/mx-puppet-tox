@@ -15,7 +15,7 @@
     "command-line-usage": "^5.0.5",
     "js-yaml": "^3.13.1",
     "mx-puppet-bridge": "0.0.45",
-    "maybe-a-tox-client": "0.0.2",
+    "maybe-a-tox-client": "0.0.3",
     "util-promisifyall": "^1.0.6"
   },
   "devDependencies": {
