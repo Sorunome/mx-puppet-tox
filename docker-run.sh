@@ -26,13 +26,13 @@ if [ "$(id -u)" = 0 ]; then
 		chown node:node *.log.*
 	fi
 
-	su_exec='su-exec node:node'
+	gosu='gosu node:node'
 else
-	su_exec=''
+	gosu=''
 fi
 
-# $su_exec is used in case we have to drop the privileges
-exec $su_exec /usr/local/bin/node '/opt/mx-puppet-tox/build/index.js' \
+# $gosu is used in case we have to drop the privileges
+exec $gosu /usr/local/bin/node '/opt/mx-puppet-tox/build/index.js' \
      -c "$CONFIG_PATH" \
      -f "$REGISTRATION_PATH" \
      $args
