@@ -29,6 +29,7 @@ export class ToxConfigWrap {
 class ToxConfig {
 	public nodesFile: string = "nodes.json";
 	public toxcore: string = "/usr/lib/x86_64-linux-gnu/libtoxcore.so";
-	public savesFolder: string = "toxsaves";
+	public savesFolder: string = process.env.SAVES_FOLDER || "toxsaves";
+	public useTimestamp: boolean = process.env.USE_TIMESTAMP == null ? true : process.env.USE_TIMESTAMP === 'true';
 	public allowFullSavePath: boolean = false;
 }
