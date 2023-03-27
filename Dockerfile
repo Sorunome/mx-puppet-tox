@@ -1,4 +1,4 @@
-FROM node:latest AS builder
+FROM node:12-bullseye AS builder
 
 WORKDIR /opt/mx-puppet-tox
 
@@ -15,15 +15,20 @@ COPY src/ ./src/
 RUN npm run build
 
 
-FROM node:alpine
+FROM node:12-bullseye
 
 VOLUME /data
 
 ENV CONFIG_PATH=/data/config.yaml \
     REGISTRATION_PATH=/data/tox-registration.yaml
 
-# su-exec is used by docker-run.sh to drop privileges
-RUN apk add --no-cache su-exec
+# gosu is used by docker-run.sh to drop privileges
+RUN  set -ex; \
+     sed -i s/bullseye/bookworm/g /etc/apt/sources.list; \
+     apt-get update; \
+     apt-get install -y --no-install-recommends libtoxcore2 libtoxcore-dev gosu; \
+     apt-get purge -y --auto-remove; \
+     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/mx-puppet-tox
 COPY docker-run.sh ./

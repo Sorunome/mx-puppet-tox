@@ -5,34 +5,42 @@ if [ ! -f "$CONFIG_PATH" ]; then
 	exit 1
 fi
 
-args="$@"
+args="$*"
 
 if [ ! -f "$REGISTRATION_PATH" ]; then
 	echo 'No registration found, generating now'
 	args="-r"
 fi
 
+if [ ! -d "/data/$SAVES_FOLDER" ]; then
+	echo "No saves folder found, creating $SAVES_FOLDER"
+	mkdir "/data/$SAVES_FOLDER"
+fi
+
 
 # if no --uid is supplied, prepare files to drop privileges
 if [ "$(id -u)" = 0 ]; then
 	chown node:node /data
+	chown node:node "/data/$SAVES_FOLDER"
 
-	if find *.db > /dev/null 2>&1; then
+	if find ./*.db > /dev/null 2>&1; then
 		# make sure sqlite files are writeable
-		chown node:node *.db
+		chown node:node ./*.db
 	fi
-	if find *.log.* > /dev/null 2>&1; then
+	if find ./*.log.* > /dev/null 2>&1; then
 		# make sure log files are writeable
-		chown node:node *.log.*
+		chown node:node ./*.log.*
 	fi
 
-	su_exec='su-exec node:node'
+	gosu='gosu node:node'
 else
-	su_exec=''
+	gosu=''
 fi
 
-# $su_exec is used in case we have to drop the privileges
-exec $su_exec /usr/local/bin/node '/opt/mx-puppet-tox/build/index.js' \
+# $gosu is used in case we have to drop the privileges
+# SC2086: Double quote to prevent globbing and word splitting.
+# shellcheck disable=2086
+exec $gosu /usr/local/bin/node '/opt/mx-puppet-tox/build/index.js' \
      -c "$CONFIG_PATH" \
      -f "$REGISTRATION_PATH" \
      $args

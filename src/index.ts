@@ -172,7 +172,11 @@ async function run() {
 		}
 		let showpath = path;
 		if (!path) {
-			showpath = `${str}.${new Date().getTime()}.tox`;
+			if (Config().tox.useTimestamp) {
+				showpath = `${str}.${new Date().getTime()}.tox`;
+			} else {
+				showpath = `${str}.tox`;
+			}
 			path = `${Config().tox.savesFolder}/${showpath}`;
 		}
 		if (!fileExists) {
